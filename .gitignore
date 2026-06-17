@@ -1,0 +1,10 @@
+/bin/
+/node_modules/
+# Ignore built assets but keep a placeholder manifest so `go:embed public/build`
+# (and `go build`) works on a fresh clone before `npm run build`.
+/public/build/*
+!/public/build/manifest.json
+/public/hot
+*.log
+.env
+.DS_Store

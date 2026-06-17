@@ -1,0 +1,11 @@
+{
+  "global": {
+    "appName": "Spark"
+  },
+  "auth": {
+    "login": "Log in",
+    "email": "Email",
+    "password": "Password",
+    "credentialsDoNotMatch": "These credentials do not match our records."
+  }
+}

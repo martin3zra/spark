@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spark</title>
+    {{ if .hmr }}
+      <script type="module" src="{{ vite "@vite/client" }}"></script>
+      <script type="module" src="{{ vite "resources/js/app.jsx" }}"></script>
+    {{ else }}
+      <script type="module" src="{{ vite "resources/js/app.jsx" }}"></script>
+    {{ end }}
+    {{ .inertiaHead }}
+  </head>
+  <body>
+    {{ .inertia }}
+  </body>
+</html>
