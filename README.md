@@ -54,16 +54,33 @@ INSERT INTO users (name, email, password, role, email_verified_at)
 VALUES ('You', 'you@example.com', '<bcrypt-hash>', 'admin', NOW());
 ```
 
-## Run — development (HMR)
+## Run — development (live reload)
 
-Two processes:
+Frontend hot-reloads with vite; the Go server live-reloads with
+[`air`](https://github.com/air-verse/air).
 
 ```sh
-npm run dev      # vite dev server (writes public/hot, hot-reloads React + CSS)
-go run .         # web server on APP_PORT
+go install github.com/air-verse/air@latest   # once
 ```
 
-Open `http://localhost:<APP_PORT>/login`.
+One command runs both (vite + air), Ctrl-C stops both:
+
+```sh
+./dev.sh
+```
+
+Or run them in separate terminals:
+
+```sh
+npm run dev      # terminal 1 — vite (writes public/hot, hot-reloads React + CSS)
+air              # terminal 2 — rebuilds + restarts the Go server on .go changes
+```
+
+Open `http://localhost:<APP_PORT>/login`. Editing a `.go` file rebuilds and
+restarts automatically; editing a `.jsx`/`.css` file hot-reloads in the browser.
+
+> `air` is configured in `.air.toml` (dev build, no `prod` tag — assets come
+> from the vite dev server). It builds to `tmp/` (git-ignored).
 
 ## Run — production
 

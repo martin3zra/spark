@@ -1,0 +1,20 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Dev build (no prod tag): assets come from the vite dev server via public/hot.
+  cmd = "GOTOOLCHAIN=local go build -o ./tmp/main ."
+  bin = "./tmp/main"
+  delay = 800
+  include_ext = ["go", "html"]
+  exclude_dir = ["tmp", "bin", "node_modules", "public", "bootstrap", "resources/js", "resources/css", "db"]
+  exclude_regex = ["_test\\.go"]
+  stop_on_error = true
+  send_interrupt = true
+  kill_delay = 2000
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = true
