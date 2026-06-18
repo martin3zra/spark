@@ -1,5 +1,6 @@
 import { router } from "@inertiajs/react";
 
+import { useCsrfHeaders } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +11,8 @@ import {
 } from "@/components/ui/card";
 
 export default function Dashboard({ auth = {} }) {
+  const headers = useCsrfHeaders();
+
   return (
     <div className="bg-muted flex min-h-screen items-center justify-center p-6">
       <Card className="w-full max-w-md">
@@ -20,7 +23,10 @@ export default function Dashboard({ auth = {} }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" onClick={() => router.post("/logout")}>
+          <Button
+            variant="outline"
+            onClick={() => router.post("/logout", {}, { headers })}
+          >
             Log out
           </Button>
         </CardContent>

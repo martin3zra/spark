@@ -1,5 +1,6 @@
 import { useForm } from "@inertiajs/react";
 
+import { useCsrfHeaders } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,10 +17,11 @@ export default function Login({ translations = {}, errors = {} }) {
     email: "",
     password: "",
   });
+  const headers = useCsrfHeaders();
 
   function submit(e) {
     e.preventDefault();
-    post("/login");
+    post("/login", { headers });
   }
 
   return (
