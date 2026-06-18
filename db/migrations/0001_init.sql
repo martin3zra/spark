@@ -32,3 +32,18 @@ CREATE TABLE IF NOT EXISTS preview_cache (
     key     TEXT PRIMARY KEY,
     payload BYTEA NOT NULL
 );
+
+-- Seed an initial admin user. Idempotent: re-running refreshes the password/role.
+-- Password hash is bcrypt with the $2a$ prefix (Go's x/crypto/bcrypt rejects $2y$).
+INSERT INTO users (name, email, password, role, must_change_password, email_verified_at)
+VALUES (
+    'Alfredo',
+    'martin3zra@gmail.com',
+    '$2a$10$EBK8SpME2Yabt2eCnAmRJeqRLj/qJec7E.mTVPA1KciyybNEFvZju',
+    'admin',
+    false,
+    NOW()
+)
+ON CONFLICT (email) DO UPDATE
+    SET password = EXCLUDED.password,
+        role     = EXCLUDED.role;
