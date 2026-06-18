@@ -14,9 +14,9 @@
         window.__vite_plugin_react_preamble_installed__ = true;
       </script>
       <script type="module" src="{{ vite "@vite/client" }}"></script>
-      <script type="module" src="{{ vite "resources/js/app.jsx" }}"></script>
+      <script type="module" src="{{ vite "resources/js/app.tsx" }}"></script>
     {{ else }}
-      <script type="module" src="{{ vite "resources/js/app.jsx" }}"></script>
+      <script type="module" src="{{ vite "resources/js/app.tsx" }}"></script>
     {{ end }}
     {{ .inertiaHead }}
   </head>

@@ -13,7 +13,7 @@ export default defineConfig({
   },
   plugins: [
     laravel({
-      input: ["resources/js/app.jsx", "resources/css/app.css"],
+      input: ["resources/js/app.tsx", "resources/css/app.css"],
       publicDirectory: "public",
       buildDirectory: "build",
       refresh: true,
