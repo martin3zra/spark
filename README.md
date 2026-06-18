@@ -46,6 +46,38 @@ psql "postgres://USER:PASS@localhost:5432/spark" -f db/migrations/0001_init.sql
 npm install
 ```
 
+### Postgres in a Docker container
+
+If you don't have Postgres locally, run one in a container:
+
+```sh
+docker run -d --name spark-pg \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=spark \
+  -p 5432:5432 \
+  postgres:16
+```
+
+Apply the migration (no local `psql` needed — pipe it into the container):
+
+```sh
+docker exec -i spark-pg psql -U postgres -d spark < db/migrations/0001_init.sql
+```
+
+Matching `.env`:
+
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=spark
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_SSLMODE=disable
+```
+
+> If port 5432 is already taken, map another (e.g. `-p 5433:5432`) and set
+> `DB_PORT=5433`.
+
 Seed a first user (bcrypt the password however you like; the framework uses
 `golang.org/x/crypto/bcrypt`):
 
