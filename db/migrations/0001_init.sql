@@ -15,15 +15,16 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Columns match forge/session DatabaseStore (id, user_id, ip_address,
--- user_agent, payload, created_at, last_activity).
+-- user_agent, payload, created_at, last_activity). created_at/last_activity are
+-- Unix-millis (BIGINT), written by the store via time.UnixMilli().
 CREATE TABLE IF NOT EXISTS sessions (
     id            TEXT PRIMARY KEY,
     user_id       INTEGER,
     ip_address    TEXT,
     user_agent    TEXT,
     payload       TEXT,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_activity TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at    BIGINT NOT NULL,
+    last_activity BIGINT NOT NULL
 );
 
 -- forge/cache PgCache.

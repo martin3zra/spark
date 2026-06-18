@@ -60,7 +60,12 @@ func (s *Server) AuthenticatedMiddleware(next routing.HandlerFunc) routing.Handl
 		}
 
 		userCtx := context.WithValue(ctx.Request.Context(), auth.ContextUserID{}, sess.Get("user"))
-		next(ctx.WithContext(userCtx))
+
+		// Seed the permission set so route .Can(...) guards can resolve.
+		user := AuthUserFromContext(userCtx)
+		permCtx := context.WithValue(userCtx, routing.PermissionKey{}, permissions(user.GetRole()))
+
+		next(ctx.WithContext(permCtx))
 	}
 }
 
