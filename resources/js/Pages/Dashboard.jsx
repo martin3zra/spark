@@ -1,7 +1,3 @@
-import { router } from "@inertiajs/react";
-
-import { useCsrfHeaders } from "@/lib/csrf";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,28 +5,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import AppLayout from "@/layouts/app-layout";
 
-export default function Dashboard({ auth = {} }) {
-  const headers = useCsrfHeaders();
+const breadcrumbs = [{ title: "Dashboard", href: "/home" }];
 
+export default function Dashboard() {
   return (
-    <div className="bg-muted flex min-h-screen items-center justify-center p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Dashboard</CardTitle>
-          <CardDescription>
-            Signed in as {auth?.user?.email ?? "unknown"}.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            onClick={() => router.post("/logout", {}, { headers })}
-          >
-            Log out
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <AppLayout breadcrumbs={breadcrumbs}>
+      <div className="flex flex-1 flex-col gap-4 p-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground text-sm">
+            Welcome back. This is your app shell — start building here.
+          </p>
+        </div>
+
+        <div className="grid auto-rows-min gap-4 md:grid-cols-3">
+          {["Overview", "Activity", "Settings"].map((title) => (
+            <Card key={title}>
+              <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>Placeholder card.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted h-24 rounded-md" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </AppLayout>
   );
 }

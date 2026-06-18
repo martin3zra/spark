@@ -148,8 +148,12 @@ resources/
   css/app.css                Tailwind v4 + shadcn theme tokens
   js/
     app.jsx · ssr.jsx        Inertia client + SSR bootstrap
-    lib/utils.js             cn() helper
-    components/ui/           shadcn primitives (button, input, label, card)
+    lib/                     cn() helper, useCsrfHeaders()
+    hooks/                   use-mobile, use-initials
+    components/ui/           shadcn primitives (sidebar, sheet, dropdown, …)
+    components/              app shell: app-sidebar, nav-main, nav-user,
+                             breadcrumbs, app-shell/content/header, app-logo
+    layouts/                 app-layout (sidebar shell) · auth-layout
     Pages/                   Welcome, Auth/Login, Dashboard
   views/                     root.html, error, mail templates
 components.json              shadcn config (jsx, @ aliases)
