@@ -1,14 +1,21 @@
-import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import laravel from "laravel-vite-plugin";
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [react()],
-  build: {
-    manifest: "manifest.json",
-    outDir: "public/build",
-    emptyOutDir: true,
-    rollupOptions: {
-      input: "resources/js/app.jsx",
-    },
+  server: {
+    host: "localhost",
+    // Stable origin so the dev "hot" URL is browser-reachable (not [::]).
+    hmr: { host: "localhost" },
   },
+  plugins: [
+    laravel({
+      input: ["resources/js/app.jsx"],
+      publicDirectory: "public",
+      buildDirectory: "build",
+      refresh: true,
+    }),
+    react(),
+  ],
+  esbuild: { jsx: "automatic" },
 });

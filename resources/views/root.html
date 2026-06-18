@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Spark</title>
     {{ if .hmr }}
+      <script type="module">
+        import RefreshRuntime from "{{ vite "@react-refresh" }}";
+        RefreshRuntime.injectIntoGlobalHook(window);
+        window.$RefreshReg$ = () => {};
+        window.$RefreshSig$ = () => (type) => type;
+        window.__vite_plugin_react_preamble_installed__ = true;
+      </script>
       <script type="module" src="{{ vite "@vite/client" }}"></script>
       <script type="module" src="{{ vite "resources/js/app.jsx" }}"></script>
     {{ else }}
