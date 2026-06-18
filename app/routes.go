@@ -26,6 +26,13 @@ func (s *Server) bootRoutes() {
 		})
 	})
 
+	// Public landing page. Own group so it carries SharedProps (for auth.user)
+	// but none of the auth/redirect middleware — both guests and logged-in
+	// users can see it.
+	s.route.Group(func(route *routing.Router) {
+		route.GET("/", s.welcomeHandler)
+	})
+
 	// Guest-only routes.
 	s.route.
 		WithMiddleware(RedirectIfAuthenticated).

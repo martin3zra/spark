@@ -140,7 +140,7 @@ app/
   acl.go                     role → permission map + Can()
   auth-handlers.go           login / logout / create-password
   home-handlers.go           dashboard
-  routes.go                  /health /login /home /logout /passwords
+  routes.go                  / (welcome) /health /login /home /logout /passwords
   forms.go                   request validation structs
   locales/ + locales.go      i18n (app-owned locale files)
 db/migrations/               users, sessions, preview_cache
@@ -150,7 +150,7 @@ resources/
     app.jsx · ssr.jsx        Inertia client + SSR bootstrap
     lib/utils.js             cn() helper
     components/ui/           shadcn primitives (button, input, label, card)
-    Pages/                   Auth/Login, Dashboard
+    Pages/                   Welcome, Auth/Login, Dashboard
   views/                     root.html, error, mail templates
 components.json              shadcn config (jsx, @ aliases)
 vite.config.js · ssr.config.js
