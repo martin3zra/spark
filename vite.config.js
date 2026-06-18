@@ -11,8 +11,4 @@ export default defineConfig({
       input: "resources/js/app.jsx",
     },
   },
-  ssr: {
-    // server bundle entry used by `vite build --ssr`
-    noExternal: ["@inertiajs/react"],
-  },
 });

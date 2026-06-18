@@ -1,8 +1,1 @@
-{
-  "resources/js/app.jsx": {
-    "file": "app.js",
-    "name": "app",
-    "src": "resources/js/app.jsx",
-    "isEntry": true
-  }
-}
+{}
