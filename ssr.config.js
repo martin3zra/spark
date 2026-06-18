@@ -16,7 +16,7 @@ export default defineConfig({
     outDir: "bootstrap/ssr",
     emptyOutDir: true,
     rollupOptions: {
-      input: "resources/js/ssr.jsx",
+      input: "resources/js/ssr.tsx",
       output: { entryFileNames: "ssr.js" },
     },
   },
