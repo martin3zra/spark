@@ -21,7 +21,6 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./resources/js", import.meta.url)),

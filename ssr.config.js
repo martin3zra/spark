@@ -5,7 +5,6 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
-  esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./resources/js", import.meta.url)),

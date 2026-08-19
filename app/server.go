@@ -16,6 +16,7 @@ import (
 	"github.com/martin3zra/forge/routing"
 	"github.com/martin3zra/forge/session"
 	"github.com/martin3zra/forge/store"
+	"github.com/martin3zra/playsql"
 )
 
 //go:embed sql/*.sql
@@ -24,6 +25,7 @@ var sqlQueriesFS embed.FS
 type Server struct {
 	qs             store.Query
 	db             *sql.DB
+	pdb            *playsql.DB
 	config         *Config
 	sessionManager *session.SessionManager
 	assets         embed.FS
@@ -104,7 +106,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) configureSessionManager() {
 	s.sessionManager = session.NewSessionManager(
-		session.NewDatabaseStore(s.db),
+		session.NewDatabaseStore(s.pdb),
 		30*time.Minute,
 		time.Duration(s.config.session.lifetime)*time.Minute,
 		12*time.Hour,

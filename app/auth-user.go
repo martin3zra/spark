@@ -9,6 +9,7 @@ import (
 
 	"github.com/martin3zra/forge/auth"
 	"github.com/martin3zra/forge/foundation"
+	"github.com/martin3zra/playsql/grammar"
 )
 
 // AuthUser is the application's user identity. It owns the users-table schema and
@@ -34,10 +35,12 @@ func (u *AuthUser) GetAuthPassword() string       { return u.Password }
 func (u *AuthUser) HasNotChangedPassword() bool   { return u.MustChangePassword }
 
 func (u *AuthUser) MarkPasswordAsChanged(db *sql.DB, password string) error {
-	_, err := db.Exec(
-		"UPDATE users SET password = $2, must_change_password = FALSE, updated_at = NOW() WHERE id = $1",
-		u.Id, foundation.NewHashable().Make(password),
+	g := dialectGrammar()
+	stmt := fmt.Sprintf(
+		"UPDATE users SET password = %s, must_change_password = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+		g.Placeholder(1), g.Placeholder(2),
 	)
+	_, err := db.Exec(stmt, foundation.NewHashable().Make(password), u.Id)
 	return err
 }
 
@@ -76,15 +79,30 @@ func scanUser(row *sql.Row) (*AuthUser, error) {
 	return u, nil
 }
 
+// dbDialect is set once at boot (see Server.openDatabaseConnection) and read
+// by the auth resolvers below, which forge's CredentialResolver/PasswordResolver
+// signatures pass only a *sql.DB to — no context/dialect available at the call
+// site to derive it from.
+var dbDialect = "postgres"
+
+func dialectGrammar() grammar.Grammar {
+	g := grammar.For(dbDialect)
+	if g == nil {
+		panic(fmt.Sprintf("unsupported dialect %q", dbDialect))
+	}
+	return g
+}
+
 func init() {
 	auth.SetCredentialResolver(func(db *sql.DB, column string, value any) (foundation.Authenticatable, error) {
-		q := fmt.Sprintf("SELECT %s FROM users WHERE %s = $1", selectUserColumns, column)
+		q := fmt.Sprintf("SELECT %s FROM users WHERE %s = %s", selectUserColumns, column, dialectGrammar().Placeholder(1))
 		return scanUser(db.QueryRow(q, value))
 	})
 
 	auth.SetPasswordResolver(func(db *sql.DB, userID int) (string, error) {
 		var password string
-		err := db.QueryRow("SELECT password FROM users WHERE id = $1", userID).Scan(&password)
+		q := fmt.Sprintf("SELECT password FROM users WHERE id = %s", dialectGrammar().Placeholder(1))
+		err := db.QueryRow(q, userID).Scan(&password)
 		return password, err
 	})
 

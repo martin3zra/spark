@@ -9,13 +9,14 @@ import (
 	"github.com/martin3zra/forge/foundation"
 	"github.com/martin3zra/forge/routing"
 	"github.com/martin3zra/forge/session"
-	"github.com/romsar/gonertia/v2"
+	"github.com/romsar/gonertia/v3"
 )
 
 // BindMiddleware injects per-request dependencies into the context.
 func (s *Server) BindMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), database.ConnectionKey{}, s.db)
+		ctx = context.WithValue(ctx, database.DialectKey{}, s.config.db.driver)
 		ctx = context.WithValue(ctx, ConfigKey{}, s.config)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

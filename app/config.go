@@ -25,6 +25,25 @@ func (c *Config) ensureHasBeenSet() {
 		panic("APP_URL should be set as environment variable")
 	case c.port == "":
 		panic("APP_PORT should be set as environment variable")
+	case len(c.secretKey) == 0:
+		panic("APP_KEY should be set as environment variable")
+	}
+
+	// DB_SOURCE is a ready-made DSN and needs nothing else. Without it, sqlite
+	// only needs a file path (DB_NAME doubles as one); postgres/mysql need the
+	// full set of discrete connection fields.
+	if c.db.source != "" {
+		return
+	}
+
+	if c.db.driver == "sqlite" {
+		if c.db.name == "" {
+			panic("DB_NAME (sqlite file path) or DB_SOURCE should be set as environment variable")
+		}
+		return
+	}
+
+	switch {
 	case c.db.name == "":
 		panic("DB_NAME should be set as environment variable")
 	case c.db.username == "":
@@ -33,8 +52,6 @@ func (c *Config) ensureHasBeenSet() {
 		panic("DB_HOST should be set as environment variable")
 	case c.db.port == "":
 		panic("DB_PORT should be set as environment variable")
-	case len(c.secretKey) == 0:
-		panic("APP_KEY should be set as environment variable")
 	}
 }
 
@@ -62,6 +79,8 @@ func LoadConfig() *Config {
 		host:         os.Getenv("APP_URL"),
 		port:         os.Getenv("APP_PORT"),
 		db: Database{
+			driver:   dbDriverOrDefault(os.Getenv("DB_DRIVER")),
+			source:   os.Getenv("DB_SOURCE"),
 			name:     os.Getenv("DB_NAME"),
 			username: os.Getenv("DB_USERNAME"),
 			password: os.Getenv("DB_PASSWORD"),
@@ -80,12 +99,21 @@ func LoadConfig() *Config {
 }
 
 type Database struct {
-	name     string
+	driver   string // "postgres" (default), "mysql", or "sqlite"
+	source   string // ready-made DSN; when set, the fields below are ignored
+	name     string // sqlite: the file path (or ":memory:")
 	username string
 	password string
 	host     string
 	port     string
 	sslmode  string
+}
+
+func dbDriverOrDefault(driver string) string {
+	if driver == "" {
+		return "postgres"
+	}
+	return driver
 }
 
 type Session struct {
