@@ -1,0 +1,21 @@
+up:
+  user:
+    action: create
+    table: users
+    columns:
+      id: id
+      uuid: string:36
+      name: string:255
+      email: string:255 unique
+      password: string:255
+      role: string:50
+      email_verified_at: timestamp nullable
+      must_change_password: boolean default:false
+      created_at: timestamp useCurrent
+      updated_at: timestamp nullable
+      deleted_at: timestamp nullable
+
+down:
+  user:
+    action: drop
+    table: users

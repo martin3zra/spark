@@ -1,0 +1,13 @@
+up:
+  preview_cache:
+    action: create
+    table: preview_cache
+    columns:
+      key: string:255 primary
+      payload: binary
+      updated_at: timestamp useCurrent
+
+down:
+  preview_cache:
+    action: drop
+    table: preview_cache

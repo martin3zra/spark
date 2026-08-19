@@ -1,0 +1,10 @@
+# camel.yaml
+# Camel reads .env first, then environment variables. DB_DRIVER and DB_SOURCE override these values.
+db:
+  driver: "postgres" # sqlite, postgres, mysql, mssql — matches DB_DRIVER in .env
+  source: ""          # matches DB_SOURCE in .env; falls back to spark's DB_HOST/PORT/... fields when empty
+
+migration:
+  directory: "database"
+  pattern: "*.yaml"
+  table: "camel_migrations"

@@ -1,0 +1,17 @@
+up:
+  session:
+    action: create
+    table: sessions
+    columns:
+      id: string:255 primary
+      user_id: bigint nullable
+      ip_address: string:255 nullable
+      user_agent: string:255 nullable
+      payload: text nullable
+      started_at: bigint
+      last_activity: bigint
+
+down:
+  session:
+    action: drop
+    table: sessions
