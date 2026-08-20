@@ -2,14 +2,12 @@ package app
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/martin3zra/forge/auth"
 	"github.com/martin3zra/forge/foundation"
-	"github.com/martin3zra/playsql/grammar"
+	"github.com/martin3zra/playsql"
 )
 
 // AuthUser is the application's user identity. It owns the users-table schema and
@@ -34,13 +32,11 @@ func (u *AuthUser) SetRole(role string)           { u.Role = role }
 func (u *AuthUser) GetAuthPassword() string       { return u.Password }
 func (u *AuthUser) HasNotChangedPassword() bool   { return u.MustChangePassword }
 
-func (u *AuthUser) MarkPasswordAsChanged(db *sql.DB, password string) error {
-	g := dialectGrammar()
-	stmt := fmt.Sprintf(
-		"UPDATE users SET password = %s, must_change_password = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-		g.Placeholder(1), g.Placeholder(2),
-	)
-	_, err := db.Exec(stmt, foundation.NewHashable().Make(password), u.Id)
+func (u *AuthUser) MarkPasswordAsChanged(db *playsql.DB, password string) error {
+	_, err := db.Model(&userModel{}).WhereEq("id", u.Id).Update(context.Background(), map[string]any{
+		"password":              foundation.NewHashable().Make(password),
+		"must_change_password": false,
+	})
 	return err
 }
 
@@ -64,46 +60,59 @@ func UserFromFoundationUser(u foundation.Authenticatable) *AuthUser {
 	return au
 }
 
-const selectUserColumns = `id, uuid, name, email, password, role, email_verified_at, must_change_password, created_at, updated_at, deleted_at`
-
-func scanUser(row *sql.Row) (*AuthUser, error) {
-	u := new(AuthUser)
-	err := row.Scan(
-		&u.Id, &u.UUID, &u.Name, &u.Email, &u.Password, &u.Role,
-		&u.EmailVerifiedAt, &u.MustChangePassword,
-		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
+// userModel is the on-disk shape of a row in the users table. Kept separate
+// from AuthUser (the domain/JSON type) so playsql's db-tag-driven metadata
+// never has to interpret AuthUser's json tags — Password uses json:"-", which
+// playsql would otherwise read as a literal "-" column name.
+type userModel struct {
+	ID                 int        `db:"id"`
+	UUID               string     `db:"uuid"`
+	Name               string     `db:"name"`
+	Email              string     `db:"email"`
+	Password           string     `db:"password"`
+	Role               string     `db:"role"`
+	EmailVerifiedAt    *time.Time `db:"email_verified_at"`
+	MustChangePassword bool       `db:"must_change_password"`
+	CreatedAt          *time.Time `db:"created_at"`
+	UpdatedAt          *time.Time `db:"updated_at"`
+	DeletedAt          *time.Time `db:"deleted_at"`
 }
 
-// dbDialect is set once at boot (see Server.openDatabaseConnection) and read
-// by the auth resolvers below, which forge's CredentialResolver/PasswordResolver
-// signatures pass only a *sql.DB to — no context/dialect available at the call
-// site to derive it from.
-var dbDialect = "postgres"
+func (userModel) TableName() string { return "users" }
 
-func dialectGrammar() grammar.Grammar {
-	g := grammar.For(dbDialect)
-	if g == nil {
-		panic(fmt.Sprintf("unsupported dialect %q", dbDialect))
+func (m userModel) toAuthUser() *AuthUser {
+	return &AuthUser{
+		Id:                 m.ID,
+		UUID:               m.UUID,
+		Name:               m.Name,
+		Email:              m.Email,
+		Password:           m.Password,
+		Role:               m.Role,
+		EmailVerifiedAt:    m.EmailVerifiedAt,
+		MustChangePassword: m.MustChangePassword,
+		Timestamps: foundation.Timestamps{
+			CreatedAt: m.CreatedAt,
+			UpdatedAt: m.UpdatedAt,
+			DeletedAt: m.DeletedAt,
+		},
 	}
-	return g
 }
 
 func init() {
-	auth.SetCredentialResolver(func(db *sql.DB, column string, value any) (foundation.Authenticatable, error) {
-		q := fmt.Sprintf("SELECT %s FROM users WHERE %s = %s", selectUserColumns, column, dialectGrammar().Placeholder(1))
-		return scanUser(db.QueryRow(q, value))
+	auth.SetCredentialResolver(func(db *playsql.DB, column string, value any) (foundation.Authenticatable, error) {
+		var row userModel
+		if err := db.Model(&userModel{}).WhereEq(column, value).First(context.Background(), &row); err != nil {
+			return nil, err
+		}
+		return row.toAuthUser(), nil
 	})
 
-	auth.SetPasswordResolver(func(db *sql.DB, userID int) (string, error) {
-		var password string
-		q := fmt.Sprintf("SELECT password FROM users WHERE id = %s", dialectGrammar().Placeholder(1))
-		err := db.QueryRow(q, userID).Scan(&password)
-		return password, err
+	auth.SetPasswordResolver(func(db *playsql.DB, userID int) (string, error) {
+		var row userModel
+		if err := db.Model(&userModel{}).WhereEq("id", userID).First(context.Background(), &row); err != nil {
+			return "", err
+		}
+		return row.Password, nil
 	})
 
 	auth.SetUserDecoder(func(ctx context.Context) foundation.Authenticatable {

@@ -25,7 +25,7 @@ var sqlQueriesFS embed.FS
 type Server struct {
 	qs             store.Query
 	db             *sql.DB
-	pdb            *playsql.DB
+	play           *playsql.DB
 	config         *Config
 	sessionManager *session.SessionManager
 	assets         embed.FS
@@ -106,7 +106,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) configureSessionManager() {
 	s.sessionManager = session.NewSessionManager(
-		session.NewDatabaseStore(s.pdb),
+		session.NewDatabaseStore(s.play),
 		30*time.Minute,
 		time.Duration(s.config.session.lifetime)*time.Minute,
 		12*time.Hour,

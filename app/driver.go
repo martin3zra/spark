@@ -14,7 +14,6 @@ import (
 
 func (s *Server) openDatabaseConnection() {
 	cfg := s.playsqlConfig()
-	dbDialect = string(cfg.Driver)
 
 	dsn, err := cfg.DSN()
 	if err != nil {
@@ -42,13 +41,13 @@ func (s *Server) openDatabaseConnection() {
 		panic(err)
 	}
 
-	pdb, err := playsql.Use(db, string(cfg.Driver))
+	play, err := playsql.Use(db, string(cfg.Driver))
 	if err != nil {
 		panic(err)
 	}
 
 	s.db = db
-	s.pdb = pdb
+	s.play = play
 }
 
 // playsqlConfig translates the app's env-driven Database config into a

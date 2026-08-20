@@ -61,7 +61,7 @@ func (s *Server) createPasswordPrompt(ctx *routing.Context) {
 func (s *Server) createPasswordHandler() routing.HandlerFunc {
 	return routing.WithRequest(func(ctx *routing.Context, form *CreatePasswordForm) {
 		user := AuthUserFromContext(ctx.Request.Context())
-		if err := user.MarkPasswordAsChanged(s.db, form.Password); err != nil {
+		if err := user.MarkPasswordAsChanged(s.play, form.Password); err != nil {
 			ctx.BackWith("password", err.Error())
 			return
 		}

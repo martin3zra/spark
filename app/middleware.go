@@ -16,6 +16,7 @@ import (
 func (s *Server) BindMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), database.ConnectionKey{}, s.db)
+		ctx = context.WithValue(ctx, database.PlaysqlKey{}, s.play)
 		ctx = context.WithValue(ctx, database.DialectKey{}, s.config.db.driver)
 		ctx = context.WithValue(ctx, ConfigKey{}, s.config)
 		next.ServeHTTP(w, r.WithContext(ctx))
