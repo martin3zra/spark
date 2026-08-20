@@ -30,6 +30,9 @@ export interface NavItem {
   title: string;
   href: string;
   icon?: LucideIcon;
+  // Dropdown items for a top-nav-style item (e.g. "Products ▾"). Sidebar
+  // rendering ignores this — it's currently only consumed by AppTopNav.
+  children?: { title: string; href: string }[];
 }
 
 export interface BreadcrumbItem {

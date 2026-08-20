@@ -1,5 +1,4 @@
 import { Link } from "@inertiajs/react";
-import { LayoutGrid } from "lucide-react";
 
 import AppLogo from "@/components/app-logo";
 import { NavMain } from "@/components/nav-main";
@@ -13,11 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { type NavItem } from "@/types";
-
-const mainNavItems: NavItem[] = [
-  { title: "Dashboard", href: "/home", icon: LayoutGrid },
-];
+import { mainNavItems } from "@/nav-items";
 
 export function AppSidebar() {
   return (
