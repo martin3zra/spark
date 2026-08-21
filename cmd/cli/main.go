@@ -63,6 +63,12 @@ func menu(args []string, server *app.Server) {
 		fmt.Println("spark CLI 0.1.0")
 	case "generate:key":
 		fmt.Println("generate key", str.GenerateRandom())
+	case "kiosk:install":
+		kioskInstallCommand()
+	case "kiosk:update":
+		kioskUpdateCommand(args)
+	case "kiosk:uninstall":
+		kioskUninstallCommand(server)
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 	}

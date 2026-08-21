@@ -117,6 +117,13 @@ func (s *Server) configureSessionManager() {
 	)
 }
 
+// DB exposes the playsql connection for CLI commands that need direct
+// database access outside the normal request/middleware path (e.g.
+// kiosk:uninstall's table-row-count check).
+func (s *Server) DB() *playsql.DB {
+	return s.play
+}
+
 func (s *Server) trans(key string, replacements ...i18n.Replacements) string {
 	return s.translator.Trans(key, replacements...)
 }
