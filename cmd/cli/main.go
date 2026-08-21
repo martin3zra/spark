@@ -10,7 +10,6 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/martin3zra/forge/foundation/str"
-	"github.com/martin3zra/playsql"
 	"github.com/martin3zra/spark/app"
 	"github.com/martin3zra/spark/resources"
 )
@@ -24,7 +23,7 @@ func main() {
 	loadEnv()
 	_ = os.Setenv("RUNNING_IN_CLI", "YES")
 
-	if err := run(os.Args); err != nil {
+	if err := dispatch(os.Args[1], os.Args[2:]); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
@@ -42,7 +41,22 @@ func loadEnv() {
 	}
 }
 
-func run(args []string) error {
+// dispatch runs a command. "generate:key" and "version" are handled before
+// booting a server on purpose: booting loads Config, which requires APP_KEY
+// to already be set (LoadConfig calls log.Fatal otherwise) — exactly the
+// value generate:key exists to produce for a brand-new project that has no
+// .env yet. Booting first would make the command that generates APP_KEY
+// unable to run until APP_KEY already exists.
+func dispatch(command string, args []string) error {
+	switch command {
+	case "version":
+		fmt.Println("spark CLI 0.1.0")
+		return nil
+	case "generate:key":
+		fmt.Println("generate key", str.GenerateRandom())
+		return nil
+	}
+
 	var assets embed.FS
 	server := app.NewServer(assets, resources.Views)
 	db := server.Boot()
@@ -50,20 +64,7 @@ func run(args []string) error {
 	shutdownCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	menu(args, db)
-
-	return server.Shutdown(shutdownCtx)
-}
-
-func menu(args []string, db *playsql.DB) {
-	command := args[1]
-	args = args[2:]
-
 	switch command {
-	case "version":
-		fmt.Println("spark CLI 0.1.0")
-	case "generate:key":
-		fmt.Println("generate key", str.GenerateRandom())
 	case "kiosk:install":
 		kioskInstallCommand()
 	case "kiosk:update":
@@ -73,4 +74,6 @@ func menu(args []string, db *playsql.DB) {
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 	}
+
+	return server.Shutdown(shutdownCtx)
 }
