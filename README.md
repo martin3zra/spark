@@ -12,15 +12,27 @@ This is the `laravel/laravel` role for forge: scaffold it to start a new project
 
 ## Scaffold a new project
 
-Uses [`gonew`](https://pkg.go.dev/golang.org/x/tools/cmd/gonew) to copy the
-template and rewrite the module path:
+[`spark-installer`](https://github.com/martin3zra/spark-installer) mirrors
+`laravel new` — one command, working app:
 
 ```sh
-go install golang.org/x/tools/cmd/gonew@latest
+go install github.com/martin3zra/spark-installer/cmd/spark@latest
 
-gonew github.com/martin3zra/spark@latest github.com/you/yourapp
+spark new github.com/you/yourapp
 cd yourapp
+./dev.sh
 ```
+
+That's `git init` + an initial commit, `.env` with a real generated
+`APP_KEY`, `npm install`, and (for the default sqlite driver, since it needs
+no server) the first migration — all done, not left for you to do by hand.
+`spark new --help` lists the flags (`--db=postgres|mysql`, `--no-git`,
+`--no-install`, `--no-migrate`).
+
+Under the hood it's [`gonew`](https://pkg.go.dev/golang.org/x/tools/cmd/gonew)
+(Google's own module-template tool) doing the actual copy + module-path
+rewrite, plus the setup above. If you'd rather do just the copy step
+yourself: `gonew github.com/martin3zra/spark@latest github.com/you/yourapp`.
 
 spark, forge, and playsql are all public — no `GOPRIVATE` setup needed for
 this step. (You'll need it later only if you install [Kiosk](#optional-kiosk-ops-console),
