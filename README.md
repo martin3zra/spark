@@ -18,20 +18,23 @@ template and rewrite the module path:
 ```sh
 go install golang.org/x/tools/cmd/gonew@latest
 
-# forge + spark are private modules — allow Go to fetch them via git:
-go env -w 'GOPRIVATE=github.com/martin3zra/*'
-
 gonew github.com/martin3zra/spark@latest github.com/you/yourapp
 cd yourapp
 ```
 
+spark, forge, and playsql are all public — no `GOPRIVATE` setup needed for
+this step. (You'll need it later only if you install [Kiosk](#optional-kiosk-ops-console),
+which is private.)
+
 ## Requirements
 
-- Go 1.23+
+- Go 1.25+
 - Node 20+ / npm
 - PostgreSQL 14+, MySQL 8+, or SQLite — pick one via `DB_DRIVER`
 - [`camel`](https://github.com/martin3zra/camel) for migrations
-- `GOPRIVATE=github.com/martin3zra/*` and git credentials (forge and playsql are private)
+- forge and playsql are public modules, no extra setup needed to fetch them.
+  If you install Kiosk (below), it's a private repo: `go env -w
+  GOPRIVATE=github.com/martin3zra/kiosk` and git credentials for it.
 
 ## Setup
 
@@ -47,6 +50,10 @@ camel migrate
 
 npm install
 ```
+
+The app shell defaults to a sidebar layout; set `VITE_APP_LAYOUT=topnav` in
+`.env` for the top-nav variant instead (build-time only — rebuild or restart
+`npm run dev` after changing it).
 
 Query building goes through [`playsql`](https://github.com/martin3zra/playsql),
 so the same code runs unmodified against any of the three drivers — switching
@@ -140,7 +147,7 @@ air              # terminal 2 — rebuilds + restarts the Go server on .go chang
 ```
 
 Open `http://localhost:<APP_PORT>/login`. Editing a `.go` file rebuilds and
-restarts automatically; editing a `.jsx`/`.css` file hot-reloads in the browser.
+restarts automatically; editing a `.tsx`/`.css` file hot-reloads in the browser.
 
 > `air` is configured in `.air.toml` (dev build, no `prod` tag — assets come
 > from the vite dev server). It builds to `tmp/` (git-ignored).
@@ -161,7 +168,9 @@ embedded).
 ## Project structure
 
 ```
-main.go · cmd/cli/main.go    web + CLI entrypoints
+main.go                       web entrypoint
+cmd/cli/main.go               CLI entrypoint (version, generate:key, kiosk:*)
+cmd/cli/kiosk.go              kiosk:install / kiosk:update / kiosk:uninstall
 build.sh                     production build
 app/
   server.go                  Boot / Start / Shutdown lifecycle
@@ -178,16 +187,19 @@ database/                     camel migrations: users, sessions, preview_cache
 resources/
   css/app.css                Tailwind v4 + shadcn theme tokens
   js/
-    app.jsx · ssr.jsx        Inertia client + SSR bootstrap
+    app.tsx · ssr.tsx        Inertia client + SSR bootstrap
+    nav-items.ts             sidebar/topnav shared nav item list
     lib/                     cn() helper, useCsrfHeaders()
     hooks/                   use-mobile, use-initials
     components/ui/           shadcn primitives (sidebar, sheet, dropdown, …)
-    components/              app shell: app-sidebar, nav-main, nav-user,
-                             breadcrumbs, app-shell/content/header, app-logo
-    layouts/                 app-layout (sidebar shell) · auth-layout
+    components/              app shell: app-sidebar, app-topnav, nav-main,
+                             nav-user, breadcrumbs, app-shell/content/header
+    layouts/                 app-layout (picks sidebar or topnav via
+                             VITE_APP_LAYOUT) · auth-layout
+    layouts/app/             app-sidebar-layout.tsx · app-topnav-layout.tsx
     Pages/                   Welcome, Auth/Login, Dashboard
   views/                     root.html, error, mail templates
-components.json              shadcn config (jsx, @ aliases)
+components.json              shadcn config (tsx, @ aliases)
 vite.config.js · ssr.config.js
 ```
 
@@ -195,15 +207,15 @@ vite.config.js · ssr.config.js
 
 - Tailwind v4 via `@tailwindcss/vite`; theme tokens (CSS variables, light/dark)
   live in `resources/css/app.css`.
-- shadcn components are plain `.jsx` under `resources/js/components/ui`. The
-  `@` alias maps to `resources/js` (see `vite.config.js` and `jsconfig.json`).
+- shadcn components are `.tsx` under `resources/js/components/ui`. The `@`
+  alias maps to `resources/js` (see `vite.config.js` and `tsconfig.json`).
 - Add more primitives with the shadcn CLI:
 
   ```sh
   npx shadcn@latest add dialog dropdown-menu table
   ```
 
-  (`components.json` is preconfigured: `tsx: false`, `@/components/ui`,
+  (`components.json` is preconfigured: `tsx: true`, `@/components/ui`,
   `@/lib/utils`, lucide icons.)
 
 ## Adding a feature
@@ -211,12 +223,31 @@ vite.config.js · ssr.config.js
 1. Handler: `app/<domain>-handlers.go` (a method on `*Server`).
 2. Route: register it in `app/routes.go`; guard with `.Can("action:resource")`.
 3. Permissions: add the ability to a role in `app/acl.go`.
-4. Page: `resources/js/Pages/<Name>.jsx`; render it with `ctx.Render("<Name>", props)`.
+4. Page: `resources/js/Pages/<Name>.tsx`; render it with `ctx.Render("<Name>", props)`.
 5. Migration: `camel make <name> --format yaml`, then `camel migrate`.
 
 > Open routes (no auth) must be registered in their own `Group` — forge
 > accumulates router middleware in place, so a bare global route inherits the
 > auth middleware added later (see `/health` in `routes.go`).
+
+## Optional: Kiosk ops console
+
+spark ships the *tooling* to install [Kiosk](https://github.com/martin3zra/kiosk)
+— company/plan/addon management, user administration, and impersonation — but
+doesn't carry Kiosk itself. A fresh clone has nothing wired in: no route, no
+config, no migrations. Installing it is a per-project choice, not a default.
+
+```sh
+./cli kiosk:install      # copies Kiosk's migrations + pages into this project,
+                          # then prints the routes.go/.env lines to add by hand
+./cli kiosk:update        # bump the dependency, re-run install to pick up changes
+./cli kiosk:uninstall     # remove what kiosk:install copied in
+```
+
+`kiosk:install`/`kiosk:uninstall` only ever touch files Kiosk itself copied in
+(tracked in `.kiosk-lock`) — never `routes.go`, never `.env`. See the
+[kiosk README](https://github.com/martin3zra/kiosk) for the full endpoint
+reference, the `Options` you pass to `kiosk.Register`, and the data model.
 
 ## Notes
 
