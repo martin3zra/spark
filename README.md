@@ -35,8 +35,7 @@ rewrite, plus the setup above. If you'd rather do just the copy step
 yourself: `gonew github.com/martin3zra/spark@latest github.com/you/yourapp`.
 
 spark, forge, and playsql are all public — no `GOPRIVATE` setup needed for
-this step. (You'll need it later only if you install [Kiosk](#optional-kiosk-ops-console),
-which is private.)
+this step (or for [Kiosk](#optional-kiosk-ops-console), also public).
 
 ## Requirements
 
@@ -44,9 +43,8 @@ which is private.)
 - Node 20+ / npm
 - PostgreSQL 14+, MySQL 8+, or SQLite — pick one via `DB_DRIVER`
 - [`camel`](https://github.com/martin3zra/camel) for migrations
-- forge and playsql are public modules, no extra setup needed to fetch them.
-  If you install Kiosk (below), it's a private repo: `go env -w
-  GOPRIVATE=github.com/martin3zra/kiosk` and git credentials for it.
+- forge, playsql, and kiosk are all public modules — no `GOPRIVATE` setup
+  needed to fetch any of them.
 
 ## Setup
 
