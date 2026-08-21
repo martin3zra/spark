@@ -10,6 +10,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/martin3zra/forge/foundation/str"
+	"github.com/martin3zra/playsql"
 	"github.com/martin3zra/spark/app"
 	"github.com/martin3zra/spark/resources"
 )
@@ -44,17 +45,17 @@ func loadEnv() {
 func run(args []string) error {
 	var assets embed.FS
 	server := app.NewServer(assets, resources.Views)
-	server.Boot()
+	db := server.Boot()
 
 	shutdownCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	menu(args, server)
+	menu(args, db)
 
 	return server.Shutdown(shutdownCtx)
 }
 
-func menu(args []string, server *app.Server) {
+func menu(args []string, db *playsql.DB) {
 	command := args[1]
 	args = args[2:]
 
@@ -68,7 +69,7 @@ func menu(args []string, server *app.Server) {
 	case "kiosk:update":
 		kioskUpdateCommand(args)
 	case "kiosk:uninstall":
-		kioskUninstallCommand(server)
+		kioskUninstallCommand(db)
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 	}

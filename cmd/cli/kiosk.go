@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/martin3zra/kiosk"
-	"github.com/martin3zra/spark/app"
+	"github.com/martin3zra/playsql"
 )
 
 func kioskInstallCommand() {
@@ -105,14 +105,14 @@ func runCmd(dir, name string, args ...string) error {
 	return cmd.Run()
 }
 
-func kioskUninstallCommand(server *app.Server) {
+func kioskUninstallCommand(db *playsql.DB) {
 	root, err := os.Getwd()
 	if err != nil {
 		exitErr(err)
 	}
 
 	ctx := context.Background()
-	plan, err := kiosk.PlanUninstall(ctx, root, server.DB())
+	plan, err := kiosk.PlanUninstall(ctx, root, db)
 	if err != nil {
 		exitErr(err)
 	}

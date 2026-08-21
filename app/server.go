@@ -50,16 +50,21 @@ func NewServer(assets, resources embed.FS) *Server {
 	}
 }
 
-func (s *Server) Boot() {
+// Boot wires up the server and returns the playsql connection it opened —
+// callers that only need direct DB access (e.g. a CLI command) can take just
+// that value rather than holding onto the whole *Server as a way to reach it.
+func (s *Server) Boot() *playsql.DB {
 	s.config.ensureHasBeenSet()
 	s.openDatabaseConnection()
 
 	if s.isRunningInCLI() {
-		return
+		return s.play
 	}
 
 	s.configureSessionManager()
 	s.configureRouting()
+
+	return s.play
 }
 
 func (s *Server) configureRouting() {
@@ -115,13 +120,6 @@ func (s *Server) configureSessionManager() {
 		s.config.session.secure,
 		s.config.session.httpOnly,
 	)
-}
-
-// DB exposes the playsql connection for CLI commands that need direct
-// database access outside the normal request/middleware path (e.g.
-// kiosk:uninstall's table-row-count check).
-func (s *Server) DB() *playsql.DB {
-	return s.play
 }
 
 func (s *Server) trans(key string, replacements ...i18n.Replacements) string {
