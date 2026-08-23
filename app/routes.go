@@ -33,25 +33,24 @@ func (s *Server) bootRoutes() {
 		route.GET("/", s.welcomeHandler)
 	})
 
-	// Guest-only routes.
-	s.route.
-		WithMiddleware(RedirectIfAuthenticated).
-		Group(func(route *routing.Router) {
-			route.GET("/login", s.login)
-			route.POST("/login", s.authHandler)
-		})
+	// Guest-only routes. GroupWithMiddleware (not WithMiddleware(...).Group(...))
+	// scopes RedirectIfAuthenticated to just this block — WithMiddleware mutates
+	// s.route in place with nothing to restore it, so it would otherwise leak
+	// onto every route registered after this one (e.g. Kiosk's routes, if
+	// installed — see the "Optional: Kiosk ops console" section below).
+	s.route.GroupWithMiddleware([]routing.Middleware{RedirectIfAuthenticated}, func(route *routing.Router) {
+		route.GET("/login", s.login)
+		route.POST("/login", s.authHandler)
+	})
 
 	// Authenticated routes.
-	s.route.
-		WithMiddleware(s.AuthenticatedMiddleware, Verified).
-		WithoutGroupMiddleware(RedirectIfAuthenticated).
-		Group(func(route *routing.Router) {
-			route.GET("/home", s.homeHandler).Can("view:dashboard")
-			route.POST("/logout", s.logoutHandler)
+	s.route.GroupWithMiddleware([]routing.Middleware{s.AuthenticatedMiddleware, Verified}, func(route *routing.Router) {
+		route.GET("/home", s.homeHandler).Can("view:dashboard")
+		route.POST("/logout", s.logoutHandler)
 
-			route.GET("/passwords/create", s.createPasswordPrompt).
-				WithoutMiddleware(Verified)
-			route.POST("/passwords", s.createPasswordHandler()).
-				WithoutMiddleware(Verified)
-		})
+		route.GET("/passwords/create", s.createPasswordPrompt).
+			WithoutMiddleware(Verified)
+		route.POST("/passwords", s.createPasswordHandler()).
+			WithoutMiddleware(Verified)
+	})
 }
