@@ -248,10 +248,10 @@ doesn't carry Kiosk itself. A fresh clone has nothing wired in: no route, no
 config, no migrations. Installing it is a per-project choice, not a default.
 
 ```sh
-./cli kiosk:install      # copies Kiosk's migrations + pages into this project,
-                          # then prints the routes.go/.env lines to add by hand
-./cli kiosk:update        # bump the dependency, re-run install to pick up changes
-./cli kiosk:uninstall     # remove what kiosk:install copied in
+go run ./cmd/cli kiosk:install      # copies Kiosk's migrations + pages into this project,
+                                     # then prints the routes.go/.env lines to add by hand
+go run ./cmd/cli kiosk:update        # bump the dependency, re-run install to pick up changes
+go run ./cmd/cli kiosk:uninstall     # remove what kiosk:install copied in
 ```
 
 `kiosk:install`/`kiosk:uninstall` only ever touch files Kiosk itself copied in
