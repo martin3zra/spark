@@ -292,6 +292,83 @@ go run ./cmd/cli kiosk:uninstall     # remove what kiosk:install copied in
 [kiosk README](https://github.com/martin3zra/kiosk) for the full endpoint
 reference, the `Options` you pass to `kiosk.Register`, and the data model.
 
+### Mail
+
+Creating a company always needs an owner; when that owner's email doesn't
+match an existing user, Kiosk creates an invitation and emails it rather
+than failing or creating an account outright — `kiosk.Options.Mailer` is
+what actually sends it. A fresh clone has no mail config, so wire this in
+alongside the allowlist above (`kiosk:install`'s printed next-steps have the
+condensed version of the same thing).
+
+**`app/config.go`**:
+
+```go
+type Config struct {
+    // ...
+    mail mailer.Config
+}
+
+// in LoadConfig():
+mail: mailer.Config{
+    Driver:      mailDriverOrDefault(os.Getenv("MAIL_DRIVER")),
+    Host:        os.Getenv("MAIL_HOST"),
+    Port:        os.Getenv("MAIL_PORT"),
+    FromAddress: os.Getenv("MAIL_FROM_ADDRESS"),
+    FromName:    os.Getenv("MAIL_FROM_NAME"),
+    Username:    os.Getenv("MAIL_USERNAME"),
+    Password:    os.Getenv("MAIL_PASSWORD"),
+    Encryption:  os.Getenv("MAIL_ENCRYPTION"),
+},
+
+// mailDriverOrDefault defaults to mailer.Log — logging the rendered email
+// (to LOG_FILE, see above) instead of sending it — so a fresh clone works
+// with zero mail setup. Set MAIL_DRIVER once you have real credentials.
+func mailDriverOrDefault(driver string) mailer.MailDriver {
+    if driver == "" {
+        return mailer.Log
+    }
+    return mailer.MailDriver(driver)
+}
+```
+
+**`app/server.go`** — build the `mailer.Mailer` once, in `NewServer`, from the
+same `resources` embed.FS already passed in for views (Kiosk's own mail
+template lands in `resources/views/mail/` via `kiosk:install`, so there's
+nothing extra to embed):
+
+```go
+type Server struct {
+    // ...
+    mailer mailer.Mailer
+}
+
+func NewServer(assets, resources embed.FS) *Server {
+    config := LoadConfig()
+    return &Server{
+        // ...
+        mailer: mailer.New(config.mail, resources),
+    }
+}
+```
+
+**`app/routes.go`** — pass both into `kiosk.Register`:
+
+```go
+kiosk.Register(s.route, kiosk.Options{
+    DB:         s.play,
+    Middleware: []routing.Middleware{s.AuthenticatedMiddleware},
+    Allowlist:  s.config.kiosk.Developers,
+    Mailer:     s.mailer,
+    AppURL:     s.config.host,
+})
+```
+
+Add `MAIL_DRIVER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`,
+`MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_ENCRYPTION` to `.env` once you have
+real mail credentials. Leave `MAIL_DRIVER` unset until then — invitations
+still work, just logged (to `LOG_FILE`) instead of sent.
+
 ### Company-aware access control
 
 Kiosk's own routes are gated by the developer allowlist, but nothing stops a
