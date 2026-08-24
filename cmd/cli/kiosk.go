@@ -34,6 +34,32 @@ const manualRoutesInstructions = `    import "github.com/martin3zra/kiosk"
     kiosk.Register(s.route, kiosk.Options{ DB: s.play, Middleware: []routing.Middleware{s.AuthenticatedMiddleware}, Allowlist: s.config.kiosk.Developers, Mailer: s.mailer, AppURL: s.config.host })
 `
 
+const manualAuthHandlersInstructions = `    See the README's "Company-aware access control" section for
+    app/auth-handlers.go: a companyMembership type + resolveCompanyID
+    helper, called in authHandler() right after ReGenerate, and a
+    session.Delete("company_id") in logoutHandler() right after Invalidate.
+`
+
+const manualMiddlewareInstructions = `    See the README's "Company-aware access control" section for
+    app/middleware.go: isDeveloper/isImpersonating added to SharedProps'
+    "auth" map, plus the isDeveloperSession and RedirectDeveloperToKiosk
+    functions.
+`
+
+const manualRoutesAccessControlInstructions = `    Add s.RedirectDeveloperToKiosk to the authenticated route group's
+    middleware list, and .WithoutMiddleware(s.RedirectDeveloperToKiosk) on
+    POST /logout. See the README's "Company-aware access control" section.
+`
+
+const manualAuthTypeInstructions = `    Add isDeveloper: boolean; isImpersonating: boolean; to the Auth
+    interface in resources/js/types/index.d.ts.
+`
+
+const manualAppLayoutInstructions = `    Render <ImpersonationBanner /> above the app shell in
+    resources/js/layouts/app-layout.tsx. See the README's "Company-aware
+    access control" section.
+`
+
 // applyWireStep runs one auto-wiring step and reports its outcome. An
 // anchorNotFoundError (the target file has diverged from the template)
 // degrades to printing manual instructions instead of failing the install.
@@ -106,6 +132,26 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 	} else if applied {
 		fmt.Println("  ✓ wired .env")
 	}
+	if err := applyWireStep(root, "app/auth-handlers.go", wireKioskAuthHandlers, manualAuthHandlersInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "app/middleware.go", wireKioskMiddleware, manualMiddlewareInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "app/routes.go (developer redirect)", wireKioskRoutesAccessControl, manualRoutesAccessControlInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "resources/js/types/index.d.ts", wireKioskAuthType, manualAuthTypeInstructions); err != nil {
+		return err
+	}
+	if applied, err := wireKioskImpersonationBanner(root); err != nil {
+		return fmt.Errorf("wiring resources/js/components/impersonation-banner.tsx: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired resources/js/components/impersonation-banner.tsx")
+	}
+	if err := applyWireStep(root, "resources/js/layouts/app-layout.tsx", wireKioskAppLayout, manualAppLayoutInstructions); err != nil {
+		return err
+	}
 
 	fmt.Println("\nNext steps:")
 	fmt.Println("  1. Set KIOSK_DEVELOPERS in .env to your own email (comma-separated for more).")
@@ -114,10 +160,10 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 	fmt.Println("     in .env (leave MAIL_DRIVER unset and invitations just get logged instead")
 	fmt.Println("     of sent).")
 	fmt.Println("  3. Run: camel migrate && npm run build")
-	fmt.Println("\nOptional — redirect kiosk developers to /kiosks until they impersonate a")
-	fmt.Println("company member, and show a \"stop impersonating\" banner elsewhere in the app:")
-	fmt.Println("see the README's \"Company-aware access control\" subsection for the full")
-	fmt.Println("login/middleware/frontend wiring.")
+	fmt.Println("\nA kiosk developer (an email in KIOSK_DEVELOPERS) is now redirected to")
+	fmt.Println("/kiosks on login until they impersonate a company member — see the README's")
+	fmt.Println("\"Company-aware access control\" section if that's not what you want (e.g.")
+	fmt.Println("Kiosk is just an admin console for you, not a login boundary).")
 	return nil
 }
 

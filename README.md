@@ -383,12 +383,19 @@ still work, just logged (to `LOG_FILE`) instead of sent.
 
 Kiosk's own routes are gated by the developer allowlist, but nothing stops a
 developer from browsing the rest of the app directly — `/home` has no idea
-"developer" and "company member" are different identities. If your app is
-multi-tenant (any page needs to know *which* company it's acting for), wire
-this in too: a kiosk developer gets redirected to `/kiosks` until they
-impersonate a company member, and the session carries which company that
-member belongs to. Entirely optional, layered on top of `kiosk:install` —
-skip it if Kiosk is just an admin console for you, not a login boundary.
+"developer" and "company member" are different identities. `kiosk:install`
+wires this in too: a kiosk developer gets redirected to `/kiosks` on login
+until they impersonate a company member, and the session carries which
+company that member belongs to. This is a real product decision, not just
+plumbing — it assumes Kiosk is a login boundary for a multi-tenant app, not
+just an admin console layered on top of a single-tenant one. If that's not
+what you want, revert this piece by hand (it's ordinary application code at
+that point, not something `kiosk:uninstall` tracks or removes): drop
+`s.RedirectDeveloperToKiosk` from the authenticated route group in
+`app/routes.go`, and remove the `<ImpersonationBanner />` in
+`app/layouts/app-layout.tsx` if you don't want it either. The rest (the
+`isDeveloper`/`isImpersonating` props, `company_id` session tracking) is
+inert without the redirect guard, so it's harmless to leave in place.
 
 **`app/config.go`** — the developer allowlist `kiosk.Options.Allowlist` and
 the guard below both read. `kiosk:install` wires this in automatically too

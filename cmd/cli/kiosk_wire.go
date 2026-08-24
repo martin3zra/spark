@@ -360,3 +360,442 @@ func wireKioskEnv(root string) (applied bool, err error) {
 	}
 	return true, nil
 }
+
+// wireKioskAuthHandlers adds company_id session tracking to app/auth-
+// handlers.go: resolved at login (so a kiosk developer's redirect guard has
+// something to check), cleared at logout. Idempotent like the other steps.
+func wireKioskAuthHandlers(root string) (applied bool, err error) {
+	path := filepath.Join(root, "app", "auth-handlers.go")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(data), "companyMembership") {
+		return false, nil
+	}
+
+	patches := []wirePatch{
+		{
+			anchor: `import (
+	"net/http"
+
+	"github.com/martin3zra/forge/auth"
+	"github.com/martin3zra/forge/routing"
+	"github.com/martin3zra/forge/session"
+	"github.com/martin3zra/forge/support"
+)`,
+			replacement: `import (
+	"net/http"
+
+	"github.com/martin3zra/forge/auth"
+	"github.com/martin3zra/forge/routing"
+	"github.com/martin3zra/forge/session"
+	"github.com/martin3zra/forge/support"
+	"github.com/martin3zra/playsql"
+)`,
+		},
+		{
+			anchor: `	if err := s.sessionManager.ReGenerate(ctx.Request, user, map[string]any{}); err != nil {
+		ctx.Error(err)
+		return
+	}
+
+	if intended := sess.Get("intended"); intended != nil {`,
+			replacement: `	if err := s.sessionManager.ReGenerate(ctx.Request, user, map[string]any{}); err != nil {
+		ctx.Error(err)
+		return
+	}
+
+	if companyID, ok := resolveCompanyID(ctx, s.play, user.GetAuthIdentifier()); ok {
+		sess.Put("company_id", companyID)
+	} else {
+		sess.Delete("company_id")
+	}
+
+	if intended := sess.Get("intended"); intended != nil {`,
+		},
+		{
+			anchor: `func (s *Server) logoutHandler(ctx *routing.Context) {
+	if err := s.sessionManager.Invalidate(ctx.Request); err != nil {
+		ctx.Error(err)
+		return
+	}
+	ctx.Redirect("/login", http.StatusSeeOther)
+}`,
+			replacement: `func (s *Server) logoutHandler(ctx *routing.Context) {
+	if err := s.sessionManager.Invalidate(ctx.Request); err != nil {
+		ctx.Error(err)
+		return
+	}
+	session.GetSession(ctx.Request).Delete("company_id")
+	ctx.Redirect("/login", http.StatusSeeOther)
+}`,
+		},
+		{
+			anchor: `func (s *Server) createPasswordHandler() routing.HandlerFunc {
+	return routing.WithRequest(func(ctx *routing.Context, form *CreatePasswordForm) {
+		user := AuthUserFromContext(ctx.Request.Context())
+		if err := user.MarkPasswordAsChanged(s.play, form.Password); err != nil {
+			ctx.BackWith("password", err.Error())
+			return
+		}
+		ctx.Redirect("/home", http.StatusSeeOther)
+	})
+}`,
+			replacement: `func (s *Server) createPasswordHandler() routing.HandlerFunc {
+	return routing.WithRequest(func(ctx *routing.Context, form *CreatePasswordForm) {
+		user := AuthUserFromContext(ctx.Request.Context())
+		if err := user.MarkPasswordAsChanged(s.play, form.Password); err != nil {
+			ctx.BackWith("password", err.Error())
+			return
+		}
+		ctx.Redirect("/home", http.StatusSeeOther)
+	})
+}
+
+// companyMembership mirrors just enough of kiosk's company_users pivot to
+// read which company (if any) a logging-in user belongs to. Kiosk owns that
+// table; importing the kiosk package here would point the module
+// relationship backwards, so this is a narrow read-only shadow of its shape.
+type companyMembership struct {
+	CompanyID int ` + "`db:\"company_id\"`" + `
+}
+
+func (companyMembership) TableName() string { return "company_users" }
+
+func resolveCompanyID(ctx *routing.Context, db *playsql.DB, userID int) (int, bool) {
+	var row companyMembership
+	if err := db.Model(&companyMembership{}).WhereEq("user_id", userID).First(ctx.Request.Context(), &row); err != nil {
+		return 0, false
+	}
+	return row.CompanyID, true
+}`,
+		},
+	}
+
+	patched, err := applyPatches(path, string(data), patches)
+	if err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, []byte(patched), 0o644); err != nil {
+		return false, err
+	}
+	if err := gofmtFile(path); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// wireKioskMiddleware adds isDeveloper/isImpersonating to SharedProps and
+// the RedirectDeveloperToKiosk guard to app/middleware.go. Idempotent like
+// the other steps.
+func wireKioskMiddleware(root string) (applied bool, err error) {
+	path := filepath.Join(root, "app", "middleware.go")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(data), "RedirectDeveloperToKiosk") {
+		return false, nil
+	}
+
+	patches := []wirePatch{
+		{
+			anchor: `import (
+	"context"
+	"net/http"
+
+	"github.com/martin3zra/forge/auth"
+	"github.com/martin3zra/forge/database"
+	"github.com/martin3zra/forge/foundation"
+	"github.com/martin3zra/forge/routing"
+	"github.com/martin3zra/forge/session"
+	"github.com/romsar/gonertia/v3"
+)`,
+			replacement: `import (
+	"context"
+	"net/http"
+	"strings"
+
+	"github.com/martin3zra/forge/auth"
+	"github.com/martin3zra/forge/database"
+	"github.com/martin3zra/forge/foundation"
+	"github.com/martin3zra/forge/routing"
+	"github.com/martin3zra/forge/session"
+	"github.com/martin3zra/kiosk"
+	"github.com/romsar/gonertia/v3"
+)`,
+		},
+		{
+			anchor: `		props := map[string]any{
+			"appName": s.config.appName,
+			"auth": map[string]any{
+				"user": sess.Get("user"),
+			},`,
+			replacement: `		props := map[string]any{
+			"appName": s.config.appName,
+			"auth": map[string]any{
+				"user":            sess.Get("user"),
+				"isDeveloper":     isDeveloperSession(sess, s.config.kiosk.Developers),
+				"isImpersonating": sess.Get(kiosk.ImpersonateSessionKey) != nil,
+			},`,
+		},
+		{
+			anchor: `// Signed verifies a temporary signed URL.
+func (s *Server) Signed(next routing.HandlerFunc) routing.HandlerFunc {
+	return func(ctx *routing.Context) {
+		if routing.VerifyRequest(ctx.Request, string(s.config.secretKey)) {
+			next(ctx)
+			return
+		}
+		ctx.Error(foundation.Unauthorized{})
+	}
+}`,
+			replacement: `// Signed verifies a temporary signed URL.
+func (s *Server) Signed(next routing.HandlerFunc) routing.HandlerFunc {
+	return func(ctx *routing.Context) {
+		if routing.VerifyRequest(ctx.Request, string(s.config.secretKey)) {
+			next(ctx)
+			return
+		}
+		ctx.Error(foundation.Unauthorized{})
+	}
+}
+
+// isDeveloperSession reads the session's raw "user" payload directly rather
+// than through AuthUserFromContext/auth.ContextUserID{} — SharedProps runs
+// before AuthenticatedMiddleware seeds that context value.
+func isDeveloperSession(sess *session.Session, developers map[string]bool) bool {
+	raw, ok := sess.Get("user").(map[string]any)
+	if !ok {
+		return false
+	}
+	email, _ := raw["email"].(string)
+	return developers[strings.ToLower(email)]
+}
+
+// RedirectDeveloperToKiosk sends a kiosk developer to /kiosks until they're
+// impersonating a company member — company_id in session is the signal
+// (set/cleared by kiosk's impersonateStart/Stop), not a separate flag:
+// developers never get one at login, only by impersonating.
+func (s *Server) RedirectDeveloperToKiosk(next routing.HandlerFunc) routing.HandlerFunc {
+	return func(ctx *routing.Context) {
+		sess := session.GetSession(ctx.Request)
+		if isDeveloperSession(sess, s.config.kiosk.Developers) && sess.Get("company_id") == nil {
+			ctx.Redirect("/kiosks", http.StatusSeeOther)
+			return
+		}
+		next(ctx)
+	}
+}`,
+		},
+	}
+
+	patched, err := applyPatches(path, string(data), patches)
+	if err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, []byte(patched), 0o644); err != nil {
+		return false, err
+	}
+	if err := gofmtFile(path); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// wireKioskRoutesAccessControl adds RedirectDeveloperToKiosk to the
+// authenticated route group (excluded from /logout). Separate from
+// wireKioskRoutes (which adds kiosk.Register) since this piece is reported
+// as its own step — it changes app-wide login behavior, not just Kiosk's own
+// routes. Idempotent like the other steps.
+func wireKioskRoutesAccessControl(root string) (applied bool, err error) {
+	path := filepath.Join(root, "app", "routes.go")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(data), "RedirectDeveloperToKiosk") {
+		return false, nil
+	}
+
+	patches := []wirePatch{
+		{
+			anchor: `	// Authenticated routes.
+	s.route.GroupWithMiddleware([]routing.Middleware{s.AuthenticatedMiddleware, Verified}, func(route *routing.Router) {
+		route.GET("/home", s.homeHandler).Can("view:dashboard")
+		route.POST("/logout", s.logoutHandler)
+
+		route.GET("/passwords/create", s.createPasswordPrompt).
+			WithoutMiddleware(Verified)
+		route.POST("/passwords", s.createPasswordHandler()).
+			WithoutMiddleware(Verified)
+	})`,
+			replacement: `	// Authenticated routes.
+	s.route.GroupWithMiddleware([]routing.Middleware{s.AuthenticatedMiddleware, Verified, s.RedirectDeveloperToKiosk}, func(route *routing.Router) {
+		route.GET("/home", s.homeHandler).Can("view:dashboard")
+		route.POST("/logout", s.logoutHandler).
+			WithoutMiddleware(s.RedirectDeveloperToKiosk)
+
+		route.GET("/passwords/create", s.createPasswordPrompt).
+			WithoutMiddleware(Verified)
+		route.POST("/passwords", s.createPasswordHandler()).
+			WithoutMiddleware(Verified)
+	})`,
+		},
+	}
+
+	patched, err := applyPatches(path, string(data), patches)
+	if err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, []byte(patched), 0o644); err != nil {
+		return false, err
+	}
+	if err := gofmtFile(path); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// wireKioskAuthType adds isDeveloper/isImpersonating to the frontend's Auth
+// type (resources/js/types/index.d.ts). Idempotent like the other steps.
+// Not Go, so no gofmt pass — the anchor/replacement are already formatted
+// to match the file's existing 2-space style.
+func wireKioskAuthType(root string) (applied bool, err error) {
+	path := filepath.Join(root, "resources", "js", "types", "index.d.ts")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(data), "isDeveloper") {
+		return false, nil
+	}
+
+	patches := []wirePatch{
+		{
+			anchor: `export interface Auth {
+  user: User | null;
+}`,
+			replacement: `export interface Auth {
+  user: User | null;
+  isDeveloper: boolean;
+  isImpersonating: boolean;
+}`,
+		},
+	}
+
+	patched, err := applyPatches(path, string(data), patches)
+	if err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, []byte(patched), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// impersonationBannerTSX is resources/js/components/impersonation-banner.tsx
+// — a new file, so it's a plain write rather than a patch. See the README's
+// "Company-aware access control" section for the source of truth this
+// mirrors.
+const impersonationBannerTSX = `import { usePage } from "@inertiajs/react";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { useCsrfHeaders } from "@/lib/csrf";
+import { type SharedProps } from "@/types";
+
+export function ImpersonationBanner() {
+  const { auth } = usePage<SharedProps>().props;
+  const headers = useCsrfHeaders();
+  const [stopping, setStopping] = useState(false);
+
+  if (!auth.isImpersonating) return null;
+
+  async function stop() {
+    setStopping(true);
+    await fetch("/kiosks/impersonate", { method: "DELETE", headers });
+    // Hard navigation — the session identity just changed back to the
+    // developer's, so every prop needs a fresh full-page load.
+    window.location.assign("/kiosks");
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
+      <span>Impersonating <strong>{auth.user?.email}</strong></span>
+      <Button type="button" size="xs" variant="outline" disabled={stopping} onClick={stop}>
+        {stopping ? "Stopping…" : "Stop impersonating"}
+      </Button>
+    </div>
+  );
+}
+`
+
+// wireKioskImpersonationBanner writes impersonation-banner.tsx if it isn't
+// there yet. Idempotent (a pre-existing file — however it got there — is
+// left alone rather than overwritten).
+func wireKioskImpersonationBanner(root string) (applied bool, err error) {
+	path := filepath.Join(root, "resources", "js", "components", "impersonation-banner.tsx")
+	if _, err := os.Stat(path); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+
+	if err := os.WriteFile(path, []byte(impersonationBannerTSX), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// wireKioskAppLayout renders ImpersonationBanner above the app shell in
+// app-layout.tsx, so it shows on every authenticated page (impersonating
+// someone lands you on /home, not back on /kiosks). Idempotent like the
+// other steps.
+func wireKioskAppLayout(root string) (applied bool, err error) {
+	path := filepath.Join(root, "resources", "js", "layouts", "app-layout.tsx")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(data), "ImpersonationBanner") {
+		return false, nil
+	}
+
+	patches := []wirePatch{
+		{
+			anchor: `import { type PropsWithChildren } from "react";
+
+import AppSidebarLayout from "@/layouts/app/app-sidebar-layout";`,
+			replacement: `import { type PropsWithChildren } from "react";
+
+import { ImpersonationBanner } from "@/components/impersonation-banner";
+import AppSidebarLayout from "@/layouts/app/app-sidebar-layout";`,
+		},
+		{
+			anchor: `  return (
+    <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
+      {children}
+    </AppLayoutTemplate>
+  );`,
+			replacement: `  return (
+    <>
+      <ImpersonationBanner />
+      <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
+        {children}
+      </AppLayoutTemplate>
+    </>
+  );`,
+		},
+	}
+
+	patched, err := applyPatches(path, string(data), patches)
+	if err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, []byte(patched), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
