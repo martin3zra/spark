@@ -7,7 +7,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.12.3
 	github.com/martin3zra/forge v0.1.7
-	github.com/martin3zra/kiosk v0.1.1-0.20260824002845-1283fa0e381a
+	github.com/martin3zra/kiosk v0.2.0
 	github.com/martin3zra/playsql v0.6.0
 	github.com/romsar/gonertia/v3 v3.0.0
 	modernc.org/sqlite v1.57.0
