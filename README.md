@@ -272,35 +272,20 @@ skip it if Kiosk is just an admin console for you, not a login boundary.
 
 **`app/config.go`** — the developer allowlist `kiosk.Options.Allowlist` and
 the guard below both read (this is the piece the printed next-steps refer
-to — nothing in a fresh clone parses `KIOSK_DEVELOPERS` on its own):
+to — nothing in a fresh clone parses `KIOSK_DEVELOPERS` on its own). Kiosk
+owns both the type and the parsing (`kiosk.AllowlistConfig`,
+`kiosk.ParseAllowlist`) — nothing to redefine here:
 
 ```go
 type Config struct {
     // ...
-    kiosk Kiosk
+    kiosk kiosk.AllowlistConfig
 }
 
 // in LoadConfig():
-kiosk: Kiosk{
-    developers: parseAllowlist(os.Getenv("KIOSK_DEVELOPERS")),
+kiosk: kiosk.AllowlistConfig{
+    Developers: kiosk.ParseAllowlist(os.Getenv("KIOSK_DEVELOPERS")),
 },
-
-// parseAllowlist turns a comma-separated KIOSK_DEVELOPERS value into the
-// lowercased-email set kiosk.Options.Allowlist expects.
-func parseAllowlist(raw string) map[string]bool {
-    allowlist := map[string]bool{}
-    for _, email := range strings.Split(raw, ",") {
-        email = strings.ToLower(strings.TrimSpace(email))
-        if email != "" {
-            allowlist[email] = true
-        }
-    }
-    return allowlist
-}
-
-type Kiosk struct {
-    developers map[string]bool
-}
 ```
 
 **`app/auth-handlers.go`** — resolve which company the logging-in user
@@ -346,7 +331,7 @@ developer, once impersonation starts, so deriving `isImpersonating` from
 
 ```go
 // in SharedProps' props map, under "auth":
-"isDeveloper":     isDeveloperSession(sess, s.config.kiosk.developers),
+"isDeveloper":     isDeveloperSession(sess, s.config.kiosk.Developers),
 "isImpersonating": sess.Get(kiosk.ImpersonateSessionKey) != nil,
 
 // isDeveloperSession reads the session's raw "user" payload directly rather
@@ -368,7 +353,7 @@ func isDeveloperSession(sess *session.Session, developers map[string]bool) bool 
 func (s *Server) RedirectDeveloperToKiosk(next routing.HandlerFunc) routing.HandlerFunc {
     return func(ctx *routing.Context) {
         sess := session.GetSession(ctx.Request)
-        if isDeveloperSession(sess, s.config.kiosk.developers) && sess.Get("company_id") == nil {
+        if isDeveloperSession(sess, s.config.kiosk.Developers) && sess.Get("company_id") == nil {
             ctx.Redirect("/kiosks", http.StatusSeeOther)
             return
         }
