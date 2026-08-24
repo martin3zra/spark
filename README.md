@@ -282,13 +282,22 @@ config, no migrations. Installing it is a per-project choice, not a default.
 
 ```sh
 go run ./cmd/cli kiosk:install      # copies Kiosk's migrations + pages into this project,
-                                     # then prints the routes.go/.env lines to add by hand
+                                     # then wires the allowlist/mail config, the mailer, and
+                                     # kiosk.Register into app/config.go, app/server.go,
+                                     # app/routes.go, and .env
 go run ./cmd/cli kiosk:update        # bump the dependency, re-run install to pick up changes
 go run ./cmd/cli kiosk:uninstall     # remove what kiosk:install copied in
 ```
 
-`kiosk:install`/`kiosk:uninstall` only ever touch files Kiosk itself copied in
-(tracked in `.kiosk-lock`) — never `routes.go`, never `.env`. See the
+`kiosk:install` copies Kiosk's migrations/pages (tracked in `.kiosk-lock`,
+like before) *and* patches `app/config.go`, `app/server.go`, `app/routes.go`,
+and `.env` with the wiring below — it's idempotent, so re-running it (e.g.
+via `kiosk:update`) is a no-op on files that are already wired. If one of
+those files has diverged too far from a fresh `spark new` project for it to
+find where to patch, it prints that one snippet for you to add by hand
+instead of guessing. `kiosk:uninstall` only removes the files it copied in
+(still tracked via `.kiosk-lock`) — it does not undo the config/server/routes
+wiring or run `go mod tidy`; both remain manual cleanup steps. See the
 [kiosk README](https://github.com/martin3zra/kiosk) for the full endpoint
 reference, the `Options` you pass to `kiosk.Register`, and the data model.
 
@@ -297,9 +306,10 @@ reference, the `Options` you pass to `kiosk.Register`, and the data model.
 Creating a company always needs an owner; when that owner's email doesn't
 match an existing user, Kiosk creates an invitation and emails it rather
 than failing or creating an account outright — `kiosk.Options.Mailer` is
-what actually sends it. A fresh clone has no mail config, so wire this in
-alongside the allowlist above (`kiosk:install`'s printed next-steps have the
-condensed version of the same thing).
+what actually sends it. `kiosk:install` wires this in automatically; the
+code below is what it writes, kept here as reference (e.g. if you're wiring
+Kiosk into a non-`spark new` host, or `kiosk:install` couldn't find where to
+patch and fell back to printing this).
 
 **`app/config.go`**:
 
@@ -381,9 +391,9 @@ member belongs to. Entirely optional, layered on top of `kiosk:install` —
 skip it if Kiosk is just an admin console for you, not a login boundary.
 
 **`app/config.go`** — the developer allowlist `kiosk.Options.Allowlist` and
-the guard below both read (this is the piece the printed next-steps refer
-to — nothing in a fresh clone parses `KIOSK_DEVELOPERS` on its own). Kiosk
-owns both the type and the parsing (`kiosk.AllowlistConfig`,
+the guard below both read. `kiosk:install` wires this in automatically too
+(nothing in a fresh clone parses `KIOSK_DEVELOPERS` on its own otherwise).
+Kiosk owns both the type and the parsing (`kiosk.AllowlistConfig`,
 `kiosk.ParseAllowlist`) — nothing to redefine here:
 
 ```go

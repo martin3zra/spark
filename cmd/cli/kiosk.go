@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,7 +16,42 @@ type kioskInstallCmd struct{}
 
 func (kioskInstallCmd) Name() string { return "kiosk:install" }
 func (kioskInstallCmd) Description() string {
-	return "Copy Kiosk's migrations and pages into this project"
+	return "Copy Kiosk's migrations/pages into this project and wire it into config/server/routes/.env"
+}
+
+const manualConfigInstructions = `    kiosk kiosk.AllowlistConfig  // field on your Config struct
+    mail mailer.Config  // field on your Config struct
+    kiosk: kiosk.AllowlistConfig{Developers: kiosk.ParseAllowlist(os.Getenv("KIOSK_DEVELOPERS"))}  // in LoadConfig()
+    mail: mailer.Config{Driver: mailDriverOrDefault(os.Getenv("MAIL_DRIVER")), Host: os.Getenv("MAIL_HOST"), Port: os.Getenv("MAIL_PORT"), FromAddress: os.Getenv("MAIL_FROM_ADDRESS"), FromName: os.Getenv("MAIL_FROM_NAME"), Username: os.Getenv("MAIL_USERNAME"), Password: os.Getenv("MAIL_PASSWORD"), Encryption: os.Getenv("MAIL_ENCRYPTION")}  // in LoadConfig()
+    func mailDriverOrDefault(driver string) mailer.MailDriver { if driver == "" { return mailer.Log }; return mailer.MailDriver(driver) }
+`
+
+const manualServerInstructions = `    mailer mailer.Mailer  // field on your Server struct
+    mailer: mailer.New(config.mail, resources)  // in NewServer() — resources is the same embed.FS already passed in
+`
+
+const manualRoutesInstructions = `    import "github.com/martin3zra/kiosk"
+    kiosk.Register(s.route, kiosk.Options{ DB: s.play, Middleware: []routing.Middleware{s.AuthenticatedMiddleware}, Allowlist: s.config.kiosk.Developers, Mailer: s.mailer, AppURL: s.config.host })
+`
+
+// applyWireStep runs one auto-wiring step and reports its outcome. An
+// anchorNotFoundError (the target file has diverged from the template)
+// degrades to printing manual instructions instead of failing the install.
+func applyWireStep(root, label string, apply func(string) (bool, error), manual string) error {
+	applied, err := apply(root)
+	if err != nil {
+		var anchorErr *anchorNotFoundError
+		if errors.As(err, &anchorErr) {
+			fmt.Printf("  ! %s has diverged from the template — couldn't auto-wire. Add by hand:\n", label)
+			fmt.Print(manual)
+			return nil
+		}
+		return fmt.Errorf("wiring %s: %w", label, err)
+	}
+	if applied {
+		fmt.Printf("  ✓ wired %s\n", label)
+	}
+	return nil
 }
 
 func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
@@ -54,28 +90,30 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 	}
 
 	fmt.Printf("\nKiosk %s installed — %d file(s) tracked in .kiosk-lock.\n", lock.KioskVersion, len(lock.Files))
+
+	fmt.Println("\nWiring Kiosk into the app:")
+	if err := applyWireStep(root, "app/config.go", wireKioskConfig, manualConfigInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "app/server.go", wireKioskServer, manualServerInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "app/routes.go", wireKioskRoutes, manualRoutesInstructions); err != nil {
+		return err
+	}
+	if applied, err := wireKioskEnv(root); err != nil {
+		return fmt.Errorf("wiring .env: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired .env")
+	}
+
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Add a developer allowlist to app/config.go — kiosk.Options.Allowlist")
-	fmt.Println("     below needs it, and it doesn't exist on a fresh clone:")
-	fmt.Println(`       kiosk kiosk.AllowlistConfig  // field on your Config struct`)
-	fmt.Println(`       kiosk: kiosk.AllowlistConfig{Developers: kiosk.ParseAllowlist(os.Getenv("KIOSK_DEVELOPERS"))}  // in LoadConfig()`)
-	fmt.Println("  2. Add mail config to app/config.go and app/server.go — creating a company")
-	fmt.Println("     always needs an owner, and Kiosk emails an invitation whenever that owner")
-	fmt.Println("     isn't an existing user, so kiosk.Options.Mailer below needs a real one:")
-	fmt.Println(`       mail mailer.Config  // field on your Config struct`)
-	fmt.Println(`       mail: mailer.Config{Driver: mailDriverOrDefault(os.Getenv("MAIL_DRIVER")), Host: os.Getenv("MAIL_HOST"), Port: os.Getenv("MAIL_PORT"), FromAddress: os.Getenv("MAIL_FROM_ADDRESS"), FromName: os.Getenv("MAIL_FROM_NAME"), Username: os.Getenv("MAIL_USERNAME"), Password: os.Getenv("MAIL_PASSWORD"), Encryption: os.Getenv("MAIL_ENCRYPTION")}  // in LoadConfig()`)
-	fmt.Println(`       func mailDriverOrDefault(driver string) mailer.MailDriver { if driver == "" { return mailer.Log }; return mailer.MailDriver(driver) }  // logs the email instead of sending it until MAIL_DRIVER is set`)
-	fmt.Println(`       mailer mailer.Mailer  // field on your Server struct`)
-	fmt.Println(`       mailer: mailer.New(config.mail, resources)  // in NewServer() — resources is the same embed.FS already passed in`)
-	fmt.Println("  3. Add to app/routes.go:")
-	fmt.Println(`       import "github.com/martin3zra/kiosk"`)
-	fmt.Println(`       kiosk.Register(s.route, kiosk.Options{ DB: s.play, Middleware: []routing.Middleware{s.AuthenticatedMiddleware}, Allowlist: s.config.kiosk.Developers, Mailer: s.mailer, AppURL: s.config.host })`)
-	fmt.Println("  4. Add KIOSK_DEVELOPERS to .env, plus MAIL_DRIVER/MAIL_HOST/MAIL_PORT/")
+	fmt.Println("  1. Set KIOSK_DEVELOPERS in .env to your own email (comma-separated for more).")
+	fmt.Println("  2. Once you have real mail credentials, set MAIL_DRIVER/MAIL_HOST/MAIL_PORT/")
 	fmt.Println("     MAIL_FROM_ADDRESS/MAIL_FROM_NAME/MAIL_USERNAME/MAIL_PASSWORD/MAIL_ENCRYPTION")
-	fmt.Println("     once you have real mail credentials (leave MAIL_DRIVER unset and")
-	fmt.Println("     invitations just get logged instead of sent)")
-	fmt.Println("  5. Run: camel migrate && npm run build")
-	fmt.Println("\nSee the README's \"Mail\" subsection for the full config.go/server.go code.")
+	fmt.Println("     in .env (leave MAIL_DRIVER unset and invitations just get logged instead")
+	fmt.Println("     of sent).")
+	fmt.Println("  3. Run: camel migrate && npm run build")
 	fmt.Println("\nOptional — redirect kiosk developers to /kiosks until they impersonate a")
 	fmt.Println("company member, and show a \"stop impersonating\" banner elsewhere in the app:")
 	fmt.Println("see the README's \"Company-aware access control\" subsection for the full")
@@ -85,8 +123,10 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 
 type kioskUpdateCmd struct{}
 
-func (kioskUpdateCmd) Name() string        { return "kiosk:update" }
-func (kioskUpdateCmd) Description() string { return "Bump the kiosk dependency, then re-run kiosk:install" }
+func (kioskUpdateCmd) Name() string { return "kiosk:update" }
+func (kioskUpdateCmd) Description() string {
+	return "Bump the kiosk dependency, then re-run kiosk:install"
+}
 
 // Run bumps the kiosk dependency, then re-runs kiosk:install to pick up
 // whatever migrations/pages changed in that version. args[0], if present,
