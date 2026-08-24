@@ -749,12 +749,12 @@ func wireKioskImpersonationBanner(root string) (applied bool, err error) {
 	return true, nil
 }
 
-// wireKioskAppLayout renders ImpersonationBanner above the app shell in
-// app-layout.tsx, so it shows on every authenticated page (impersonating
-// someone lands you on /home, not back on /kiosks). Idempotent like the
-// other steps.
-func wireKioskAppLayout(root string) (applied bool, err error) {
-	path := filepath.Join(root, "resources", "js", "layouts", "app-layout.tsx")
+// wireKioskTopnavLayout renders ImpersonationBanner above everything in the
+// topnav shell — AppTopNav is a normal-flow element (no fixed/sticky
+// positioning), so a banner placed before it just pushes the nav down, no
+// overlap. Idempotent like the other steps.
+func wireKioskTopnavLayout(root string) (applied bool, err error) {
+	path := filepath.Join(root, "resources", "js", "layouts", "app", "app-topnav-layout.tsx")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false, err
@@ -765,28 +765,71 @@ func wireKioskAppLayout(root string) (applied bool, err error) {
 
 	patches := []wirePatch{
 		{
-			anchor: `import { type PropsWithChildren } from "react";
-
-import AppSidebarLayout from "@/layouts/app/app-sidebar-layout";`,
-			replacement: `import { type PropsWithChildren } from "react";
-
-import { ImpersonationBanner } from "@/components/impersonation-banner";
-import AppSidebarLayout from "@/layouts/app/app-sidebar-layout";`,
+			anchor: `import { AppContent } from "@/components/app-content";
+import { AppShell } from "@/components/app-shell";
+import { AppTopNav } from "@/components/app-topnav";
+import { AppTopNavHeader } from "@/components/app-topnav-header";`,
+			replacement: `import { AppContent } from "@/components/app-content";
+import { AppShell } from "@/components/app-shell";
+import { AppTopNav } from "@/components/app-topnav";
+import { AppTopNavHeader } from "@/components/app-topnav-header";
+import { ImpersonationBanner } from "@/components/impersonation-banner";`,
 		},
 		{
 			anchor: `  return (
-    <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
-      {children}
-    </AppLayoutTemplate>
-  );`,
+    <AppShell variant="header">
+      <AppTopNav />`,
 			replacement: `  return (
-    <>
+    <AppShell variant="header">
       <ImpersonationBanner />
-      <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
-        {children}
-      </AppLayoutTemplate>
-    </>
-  );`,
+      <AppTopNav />`,
+		},
+	}
+
+	patched, err := applyPatches(path, string(data), patches)
+	if err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, []byte(patched), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// wireKioskSidebarLayout renders ImpersonationBanner inside the content
+// column (SidebarInset), not above the shell — the sidebar itself is
+// `fixed inset-y-0`, anchored to the viewport regardless of DOM position, so
+// a banner placed above the whole shell would sit at the same y=0 the
+// sidebar does and get visually covered by it rather than pushing it down.
+// Idempotent like the other steps.
+func wireKioskSidebarLayout(root string) (applied bool, err error) {
+	path := filepath.Join(root, "resources", "js", "layouts", "app", "app-sidebar-layout.tsx")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(data), "ImpersonationBanner") {
+		return false, nil
+	}
+
+	patches := []wirePatch{
+		{
+			anchor: `import { AppContent } from "@/components/app-content";
+import { AppShell } from "@/components/app-shell";
+import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebarHeader } from "@/components/app-sidebar-header";`,
+			replacement: `import { AppContent } from "@/components/app-content";
+import { AppShell } from "@/components/app-shell";
+import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebarHeader } from "@/components/app-sidebar-header";
+import { ImpersonationBanner } from "@/components/impersonation-banner";`,
+		},
+		{
+			anchor: `      <AppContent variant="sidebar">
+        <AppSidebarHeader breadcrumbs={breadcrumbs} />`,
+			replacement: `      <AppContent variant="sidebar">
+        <ImpersonationBanner />
+        <AppSidebarHeader breadcrumbs={breadcrumbs} />`,
 		},
 	}
 

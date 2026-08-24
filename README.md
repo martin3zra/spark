@@ -392,8 +392,9 @@ just an admin console layered on top of a single-tenant one. If that's not
 what you want, revert this piece by hand (it's ordinary application code at
 that point, not something `kiosk:uninstall` tracks or removes): drop
 `s.RedirectDeveloperToKiosk` from the authenticated route group in
-`app/routes.go`, and remove the `<ImpersonationBanner />` in
-`app/layouts/app-layout.tsx` if you don't want it either. The rest (the
+`app/routes.go`, and remove the `<ImpersonationBanner />` from
+`resources/js/layouts/app/app-topnav-layout.tsx` and
+`app-sidebar-layout.tsx` if you don't want it either. The rest (the
 `isDeveloper`/`isImpersonating` props, `company_id` session tracking) is
 inert without the redirect guard, so it's harmless to leave in place.
 
@@ -541,9 +542,18 @@ export function ImpersonationBanner() {
 }
 ```
 
-Render it inside `app-layout.tsx` (wrapping `children`, above the app shell,
-so it shows regardless of `VITE_APP_LAYOUT`), and add `isDeveloper` /
-`isImpersonating` to the `Auth` type in `resources/js/types/index.d.ts`.
+Where it renders has to differ by shell, not live once in `app-layout.tsx`:
+`app-topnav-layout.tsx`'s nav is a normal-flow element, so
+`<ImpersonationBanner />` as the first child of `<AppShell variant="header">`
+(above `<AppTopNav />`) just pushes it down — no overlap. The sidebar shell
+is different: `<Sidebar>` is `fixed inset-y-0`, anchored to the viewport
+regardless of where it sits in the DOM, so a banner placed above the whole
+shell ends up at the same y=0 the sidebar does and gets covered by it rather
+than pushing it down. Render it inside `<AppContent variant="sidebar">`
+instead (the first child, above `<AppSidebarHeader />`) — that's
+`SidebarInset`, a normal-flow column next to the fixed sidebar, not
+underneath it. Add `isDeveloper`/`isImpersonating` to the `Auth` type in
+`resources/js/types/index.d.ts` either way.
 
 ## Notes
 

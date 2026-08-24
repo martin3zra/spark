@@ -12,12 +12,16 @@ interface LoginProps {
   errors?: Record<string, string>;
 }
 
-export default function Login({ translations = {}, errors = {} }: LoginProps) {
+export default function Login({ translations = {}, errors }: LoginProps) {
   const { data, setData, post, processing } = useForm({
     email: "",
     password: "",
   });
   const headers = useCsrfHeaders();
+  // errors arrives as `null` (not `undefined`) on a fresh session — a
+  // default parameter only kicks in for `undefined`, so it has to be
+  // coerced here instead.
+  const safeErrors = errors ?? {};
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -40,8 +44,8 @@ export default function Login({ translations = {}, errors = {} }: LoginProps) {
             autoComplete="email"
             autoFocus
           />
-          {errors.email && (
-            <p className="text-destructive text-sm">{errors.email}</p>
+          {safeErrors.email && (
+            <p className="text-destructive text-sm">{safeErrors.email}</p>
           )}
         </div>
 

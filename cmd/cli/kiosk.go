@@ -55,8 +55,16 @@ const manualAuthTypeInstructions = `    Add isDeveloper: boolean; isImpersonatin
     interface in resources/js/types/index.d.ts.
 `
 
-const manualAppLayoutInstructions = `    Render <ImpersonationBanner /> above the app shell in
-    resources/js/layouts/app-layout.tsx. See the README's "Company-aware
+const manualTopnavLayoutInstructions = `    Render <ImpersonationBanner /> as the first child of <AppShell
+    variant="header"> in resources/js/layouts/app/app-topnav-layout.tsx,
+    above <AppTopNav />. See the README's "Company-aware access control"
+    section.
+`
+
+const manualSidebarLayoutInstructions = `    Render <ImpersonationBanner /> as the first child inside <AppContent
+    variant="sidebar"> in resources/js/layouts/app/app-sidebar-layout.tsx —
+    NOT above <AppShell>, since the sidebar is fixed/inset-y-0 and would
+    render on top of a banner placed there. See the README's "Company-aware
     access control" section.
 `
 
@@ -149,7 +157,10 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 	} else if applied {
 		fmt.Println("  ✓ wired resources/js/components/impersonation-banner.tsx")
 	}
-	if err := applyWireStep(root, "resources/js/layouts/app-layout.tsx", wireKioskAppLayout, manualAppLayoutInstructions); err != nil {
+	if err := applyWireStep(root, "resources/js/layouts/app/app-topnav-layout.tsx", wireKioskTopnavLayout, manualTopnavLayoutInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "resources/js/layouts/app/app-sidebar-layout.tsx", wireKioskSidebarLayout, manualSidebarLayoutInstructions); err != nil {
 		return err
 	}
 
