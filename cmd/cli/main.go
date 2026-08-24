@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	"github.com/martin3zra/forge/foundation/str"
 	"github.com/martin3zra/spark/app"
 	"github.com/martin3zra/spark/resources"
 )
@@ -17,6 +16,8 @@ import (
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: spark <command> [arguments]")
+		fmt.Println()
+		listCommands()
 		return
 	}
 
@@ -41,20 +42,32 @@ func loadEnv() {
 	}
 }
 
-// dispatch runs a command. "generate:key" and "version" are handled before
-// booting a server on purpose: booting loads Config, which requires APP_KEY
-// to already be set (LoadConfig calls log.Fatal otherwise) — exactly the
-// value generate:key exists to produce for a brand-new project that has no
-// .env yet. Booting first would make the command that generates APP_KEY
-// unable to run until APP_KEY already exists.
-func dispatch(command string, args []string) error {
-	switch command {
-	case "version":
-		fmt.Println("spark CLI 0.1.0")
+// dispatch looks a command up in the registry (commands.go) and runs it.
+// PreBootCommand runs immediately — no Config, no DB, so it works even
+// before APP_KEY exists (generate:key's whole reason for being one).
+// BootCommand needs a live server: Config loaded, DB connected, torn down
+// again once the command returns.
+//
+// "list"/"help" bypass the registry — they're about the registry, not in it.
+func dispatch(name string, args []string) error {
+	if name == "list" || name == "help" {
+		listCommands()
 		return nil
-	case "generate:key":
-		fmt.Println("generate key", str.GenerateRandom())
-		return nil
+	}
+
+	cmd := findCommand(name)
+	if cmd == nil {
+		listCommands()
+		return fmt.Errorf("unknown command: %s", name)
+	}
+
+	if pre, ok := cmd.(PreBootCommand); ok {
+		return pre.RunPreBoot(args)
+	}
+
+	boot, ok := cmd.(BootCommand)
+	if !ok {
+		return fmt.Errorf("%s: registered but implements neither PreBootCommand nor BootCommand", name)
 	}
 
 	var assets embed.FS
@@ -64,16 +77,8 @@ func dispatch(command string, args []string) error {
 	shutdownCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	switch command {
-	case "kiosk:install":
-		kioskInstallCommand()
-	case "kiosk:update":
-		kioskUpdateCommand(args)
-	case "kiosk:uninstall":
-		kioskUninstallCommand(db)
-	default:
-		fmt.Printf("Unknown command: %s\n", command)
+	if err := boot.Run(&CommandContext{Server: server, DB: db}, args); err != nil {
+		return err
 	}
-
 	return server.Shutdown(shutdownCtx)
 }

@@ -173,13 +173,46 @@ restarts automatically; editing a `.tsx`/`.css` file hot-reloads in the browser.
 (`bootstrap/ssr`), then compiles the binaries with the `prod` tag (assets are
 embedded).
 
+## CLI — adding your own commands
+
+`go run ./cmd/cli list` (or no args, or `help`) prints every registered
+command. Adding one is two steps, no changes to `main.go`:
+
+1. Write a type implementing `PreBootCommand` (runs immediately — no Config,
+   no DB; use this only for something that must work before APP_KEY exists,
+   like `generate:key`) or `BootCommand` (runs after the server boots, with
+   a `*CommandContext` carrying `Server`/`DB` — what you want for anything
+   that touches the database or app config):
+
+   ```go
+   type reportCmd struct{}
+
+   func (reportCmd) Name() string        { return "report:weekly" }
+   func (reportCmd) Description() string { return "Email the weekly usage report" }
+
+   func (reportCmd) Run(ctx *CommandContext, args []string) error {
+       // ctx.DB, ctx.Server available here
+       return nil
+   }
+   ```
+
+2. Add it to the `commands` slice in `cmd/cli/commands.go`.
+
+Return an error rather than calling `os.Exit` — `dispatch` in `main.go` is
+the one place that prints it and sets the exit code, so every command fails
+the same way. See `cmd/cli/kiosk.go`'s three commands for a complete
+worked example (including one, `kiosk:update`, that shells out to `go get`
++ a fresh `go run` subprocess rather than doing everything in-process).
+
 ---
 
 ## Project structure
 
 ```
 main.go                       web entrypoint
-cmd/cli/main.go               CLI entrypoint (version, generate:key, kiosk:*)
+cmd/cli/main.go               CLI entrypoint — dispatches by name via the registry
+cmd/cli/command.go            Command / PreBootCommand / BootCommand interfaces
+cmd/cli/commands.go           the command registry, list/help, version, generate:key
 cmd/cli/kiosk.go              kiosk:install / kiosk:update / kiosk:uninstall
 build.sh                     production build
 app/

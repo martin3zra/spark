@@ -9,18 +9,24 @@ import (
 	"strings"
 
 	"github.com/martin3zra/kiosk"
-	"github.com/martin3zra/playsql"
 )
 
-func kioskInstallCommand() {
+type kioskInstallCmd struct{}
+
+func (kioskInstallCmd) Name() string { return "kiosk:install" }
+func (kioskInstallCmd) Description() string {
+	return "Copy Kiosk's migrations and pages into this project"
+}
+
+func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 	root, err := os.Getwd()
 	if err != nil {
-		exitErr(err)
+		return err
 	}
 
 	plan, err := kiosk.PlanInstall(root)
 	if err != nil {
-		exitErr(err)
+		return err
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -44,7 +50,7 @@ func kioskInstallCommand() {
 
 	lock, err := kiosk.ApplyInstall(root, plan, skip)
 	if err != nil {
-		exitErr(err)
+		return err
 	}
 
 	fmt.Printf("\nKiosk %s installed — %d file(s) tracked in .kiosk-lock.\n", lock.KioskVersion, len(lock.Files))
@@ -62,11 +68,17 @@ func kioskInstallCommand() {
 	fmt.Println("company member, and show a \"stop impersonating\" banner elsewhere in the app:")
 	fmt.Println("see the README's \"Company-aware access control\" subsection for the full")
 	fmt.Println("login/middleware/frontend wiring.")
+	return nil
 }
 
-// kioskUpdateCommand bumps the kiosk dependency, then re-runs kiosk:install
-// to pick up whatever migrations/pages changed in that version. args[0], if
-// present, pins a version ("v0.2.0"); otherwise it updates to @latest.
+type kioskUpdateCmd struct{}
+
+func (kioskUpdateCmd) Name() string        { return "kiosk:update" }
+func (kioskUpdateCmd) Description() string { return "Bump the kiosk dependency, then re-run kiosk:install" }
+
+// Run bumps the kiosk dependency, then re-runs kiosk:install to pick up
+// whatever migrations/pages changed in that version. args[0], if present,
+// pins a version ("v0.2.0"); otherwise it updates to @latest.
 //
 // Deliberately `go get <module>@version`, not `go get -u`: -u would also
 // upgrade every other already-required module (forge, playsql, ...) to
@@ -78,10 +90,10 @@ func kioskInstallCommand() {
 // code runs at compile time, so this already-running binary is still built
 // against the pre-update kiosk — only a new process picks up go.mod's
 // change.
-func kioskUpdateCommand(args []string) {
+func (kioskUpdateCmd) Run(_ *CommandContext, args []string) error {
 	root, err := os.Getwd()
 	if err != nil {
-		exitErr(err)
+		return err
 	}
 
 	version := "latest"
@@ -92,16 +104,14 @@ func kioskUpdateCommand(args []string) {
 
 	fmt.Println("go get " + target)
 	if err := runCmd(root, "go", "get", target); err != nil {
-		exitErr(err)
+		return err
 	}
 	if err := runCmd(root, "go", "mod", "tidy"); err != nil {
-		exitErr(err)
+		return err
 	}
 
 	fmt.Println("\nDependency updated. Re-running kiosk:install in a fresh process to pick up any new or changed migrations/pages...")
-	if err := runCmd(root, "go", "run", "./cmd/cli", "kiosk:install"); err != nil {
-		exitErr(err)
-	}
+	return runCmd(root, "go", "run", "./cmd/cli", "kiosk:install")
 }
 
 func runCmd(dir, name string, args ...string) error {
@@ -113,16 +123,21 @@ func runCmd(dir, name string, args ...string) error {
 	return cmd.Run()
 }
 
-func kioskUninstallCommand(db *playsql.DB) {
+type kioskUninstallCmd struct{}
+
+func (kioskUninstallCmd) Name() string        { return "kiosk:uninstall" }
+func (kioskUninstallCmd) Description() string { return "Remove the files kiosk:install copied in" }
+
+func (kioskUninstallCmd) Run(ctx *CommandContext, _ []string) error {
 	root, err := os.Getwd()
 	if err != nil {
-		exitErr(err)
+		return err
 	}
 
-	ctx := context.Background()
-	plan, err := kiosk.PlanUninstall(ctx, root, db)
+	planCtx := context.Background()
+	plan, err := kiosk.PlanUninstall(planCtx, root, ctx.DB)
 	if err != nil {
-		exitErr(err)
+		return err
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -147,26 +162,22 @@ func kioskUninstallCommand(db *playsql.DB) {
 	}
 	if anyData && !confirm(reader, "\nContinue uninstalling Kiosk's code?") {
 		fmt.Println("aborted.")
-		return
+		return nil
 	}
 
 	if err := kiosk.ApplyUninstall(root, plan, skip); err != nil {
-		exitErr(err)
+		return err
 	}
 
 	fmt.Println("\nKiosk's copied files removed. Now:")
 	fmt.Println("  1. Remove the kiosk import + kiosk.Register(...) call from app/routes.go")
 	fmt.Println("  2. Remove KIOSK_DEVELOPERS from .env")
 	fmt.Println("  3. Run: go mod tidy")
+	return nil
 }
 
 func confirm(reader *bufio.Reader, prompt string) bool {
 	fmt.Print(prompt + " [y/N] ")
 	answer, _ := reader.ReadString('\n')
 	return strings.TrimSpace(strings.ToLower(answer)) == "y"
-}
-
-func exitErr(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
 }
