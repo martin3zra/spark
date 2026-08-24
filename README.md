@@ -259,6 +259,180 @@ go run ./cmd/cli kiosk:uninstall     # remove what kiosk:install copied in
 [kiosk README](https://github.com/martin3zra/kiosk) for the full endpoint
 reference, the `Options` you pass to `kiosk.Register`, and the data model.
 
+### Company-aware access control
+
+Kiosk's own routes are gated by the developer allowlist, but nothing stops a
+developer from browsing the rest of the app directly — `/home` has no idea
+"developer" and "company member" are different identities. If your app is
+multi-tenant (any page needs to know *which* company it's acting for), wire
+this in too: a kiosk developer gets redirected to `/kiosks` until they
+impersonate a company member, and the session carries which company that
+member belongs to. Entirely optional, layered on top of `kiosk:install` —
+skip it if Kiosk is just an admin console for you, not a login boundary.
+
+**`app/config.go`** — the developer allowlist `kiosk.Options.Allowlist` and
+the guard below both read (this is the piece the printed next-steps refer
+to — nothing in a fresh clone parses `KIOSK_DEVELOPERS` on its own):
+
+```go
+type Config struct {
+    // ...
+    kiosk Kiosk
+}
+
+// in LoadConfig():
+kiosk: Kiosk{
+    developers: parseAllowlist(os.Getenv("KIOSK_DEVELOPERS")),
+},
+
+// parseAllowlist turns a comma-separated KIOSK_DEVELOPERS value into the
+// lowercased-email set kiosk.Options.Allowlist expects.
+func parseAllowlist(raw string) map[string]bool {
+    allowlist := map[string]bool{}
+    for _, email := range strings.Split(raw, ",") {
+        email = strings.ToLower(strings.TrimSpace(email))
+        if email != "" {
+            allowlist[email] = true
+        }
+    }
+    return allowlist
+}
+
+type Kiosk struct {
+    developers map[string]bool
+}
+```
+
+**`app/auth-handlers.go`** — resolve which company the logging-in user
+belongs to from Kiosk's `company_users` table and store it in session; clear
+it on logout so it doesn't linger stale for the next login on that session:
+
+```go
+// companyMembership mirrors just enough of kiosk's company_users pivot to
+// read which company (if any) a logging-in user belongs to. Kiosk owns that
+// table; importing the kiosk package here would point the module
+// relationship backwards, so this is a narrow read-only shadow of its shape.
+type companyMembership struct {
+    CompanyID int `db:"company_id"`
+}
+
+func (companyMembership) TableName() string { return "company_users" }
+
+func resolveCompanyID(ctx *routing.Context, db *playsql.DB, userID int) (int, bool) {
+    var row companyMembership
+    if err := db.Model(&companyMembership{}).WhereEq("user_id", userID).First(ctx.Request.Context(), &row); err != nil {
+        return 0, false
+    }
+    return row.CompanyID, true
+}
+
+// in authHandler(), right after ReGenerate:
+if companyID, ok := resolveCompanyID(ctx, s.play, user.GetAuthIdentifier()); ok {
+    sess.Put("company_id", companyID)
+} else {
+    sess.Delete("company_id")
+}
+
+// in logoutHandler(), right after Invalidate:
+session.GetSession(ctx.Request).Delete("company_id")
+```
+
+**`app/middleware.go`** — expose the state to the frontend, and the guard
+itself. `isImpersonating` reads `kiosk.ImpersonateSessionKey` (whether an
+impersonation is active at all) rather than `company_id` — `isDeveloper`
+describes the *current* identity, which is the impersonated target, not the
+developer, once impersonation starts, so deriving `isImpersonating` from
+`isDeveloper` would be false exactly when it needs to be true:
+
+```go
+// in SharedProps' props map, under "auth":
+"isDeveloper":     isDeveloperSession(sess, s.config.kiosk.developers),
+"isImpersonating": sess.Get(kiosk.ImpersonateSessionKey) != nil,
+
+// isDeveloperSession reads the session's raw "user" payload directly rather
+// than through AuthUserFromContext/auth.ContextUserID{} — SharedProps runs
+// before AuthenticatedMiddleware seeds that context value.
+func isDeveloperSession(sess *session.Session, developers map[string]bool) bool {
+    raw, ok := sess.Get("user").(map[string]any)
+    if !ok {
+        return false
+    }
+    email, _ := raw["email"].(string)
+    return developers[strings.ToLower(email)]
+}
+
+// RedirectDeveloperToKiosk sends a kiosk developer to /kiosks until they're
+// impersonating a company member — company_id in session is the signal
+// (set/cleared by kiosk's impersonateStart/Stop), not a separate flag:
+// developers never get one at login, only by impersonating.
+func (s *Server) RedirectDeveloperToKiosk(next routing.HandlerFunc) routing.HandlerFunc {
+    return func(ctx *routing.Context) {
+        sess := session.GetSession(ctx.Request)
+        if isDeveloperSession(sess, s.config.kiosk.developers) && sess.Get("company_id") == nil {
+            ctx.Redirect("/kiosks", http.StatusSeeOther)
+            return
+        }
+        next(ctx)
+    }
+}
+```
+
+**`app/routes.go`** — wire the guard onto the authenticated group, excluded
+from `/logout` (a developer stuck with no company context must still be able
+to sign out rather than bouncing between `/kiosks` and nowhere else):
+
+```go
+s.route.GroupWithMiddleware([]routing.Middleware{s.AuthenticatedMiddleware, Verified, s.RedirectDeveloperToKiosk}, func(route *routing.Router) {
+    route.GET("/home", s.homeHandler).Can("view:dashboard")
+    route.POST("/logout", s.logoutHandler).
+        WithoutMiddleware(s.RedirectDeveloperToKiosk)
+    // ...
+})
+```
+
+**Frontend** — a banner while impersonating, shown on every authenticated
+page rather than just inside `/kiosks`, since impersonating someone lands you
+on `/home`, not back on the Kiosk dashboard:
+
+```tsx
+// resources/js/components/impersonation-banner.tsx
+import { usePage } from "@inertiajs/react";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { useCsrfHeaders } from "@/lib/csrf";
+import { type SharedProps } from "@/types";
+
+export function ImpersonationBanner() {
+  const { auth } = usePage<SharedProps>().props;
+  const headers = useCsrfHeaders();
+  const [stopping, setStopping] = useState(false);
+
+  if (!auth.isImpersonating) return null;
+
+  async function stop() {
+    setStopping(true);
+    await fetch("/kiosks/impersonate", { method: "DELETE", headers });
+    // Hard navigation — the session identity just changed back to the
+    // developer's, so every prop needs a fresh full-page load.
+    window.location.assign("/kiosks");
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
+      <span>Impersonating <strong>{auth.user?.email}</strong></span>
+      <Button type="button" size="xs" variant="outline" disabled={stopping} onClick={stop}>
+        {stopping ? "Stopping…" : "Stop impersonating"}
+      </Button>
+    </div>
+  );
+}
+```
+
+Render it inside `app-layout.tsx` (wrapping `children`, above the app shell,
+so it shows regardless of `VITE_APP_LAYOUT`), and add `isDeveloper` /
+`isImpersonating` to the `Auth` type in `resources/js/types/index.d.ts`.
+
 ## Notes
 
 - `created_at` / `last_activity` on `sessions` are `BIGINT` (Unix-millis), as the

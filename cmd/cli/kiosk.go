@@ -49,11 +49,19 @@ func kioskInstallCommand() {
 
 	fmt.Printf("\nKiosk %s installed — %d file(s) tracked in .kiosk-lock.\n", lock.KioskVersion, len(lock.Files))
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Add to app/routes.go:")
+	fmt.Println("  1. Add a developer allowlist to app/config.go — kiosk.Options.Allowlist")
+	fmt.Println("     below needs it, and it doesn't exist on a fresh clone. See the README's")
+	fmt.Println("     \"Optional: Kiosk ops console\" section for the exact Config/LoadConfig/")
+	fmt.Println("     parseAllowlist snippet.")
+	fmt.Println("  2. Add to app/routes.go:")
 	fmt.Println(`       import "github.com/martin3zra/kiosk"`)
 	fmt.Println(`       kiosk.Register(s.route, kiosk.Options{ DB: s.play, Middleware: []routing.Middleware{s.AuthenticatedMiddleware}, Allowlist: s.config.kiosk.developers })`)
-	fmt.Println("  2. Add KIOSK_DEVELOPERS to .env")
-	fmt.Println("  3. Run: camel migrate && npm run build")
+	fmt.Println("  3. Add KIOSK_DEVELOPERS to .env")
+	fmt.Println("  4. Run: camel migrate && npm run build")
+	fmt.Println("\nOptional — redirect kiosk developers to /kiosks until they impersonate a")
+	fmt.Println("company member, and show a \"stop impersonating\" banner elsewhere in the app:")
+	fmt.Println("see the README's \"Company-aware access control\" subsection for the full")
+	fmt.Println("login/middleware/frontend wiring.")
 }
 
 // kioskUpdateCommand bumps the kiosk dependency, then re-runs kiosk:install
