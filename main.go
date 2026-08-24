@@ -28,6 +28,10 @@ func main() {
 		log.Printf("no .env loaded: %v", err)
 	}
 
+	if f := app.ConfigureLogging(os.Getenv("LOG_FILE")); f != nil {
+		defer f.Close()
+	}
+
 	if err := run(os.Args, os.Stdout); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(exitFail)

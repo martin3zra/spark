@@ -22,6 +22,9 @@ func main() {
 	}
 
 	loadEnv()
+	if f := app.ConfigureLogging(os.Getenv("LOG_FILE")); f != nil {
+		defer f.Close()
+	}
 	_ = os.Setenv("RUNNING_IN_CLI", "YES")
 
 	if err := dispatch(os.Args[1], os.Args[2:]); err != nil {
