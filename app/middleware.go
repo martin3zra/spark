@@ -29,6 +29,7 @@ func (s *Server) SharedProps(next routing.HandlerFunc) routing.HandlerFunc {
 		sess := ctx.Request.Context().Value(session.SessionContextKey{}).(*session.Session)
 
 		props := map[string]any{
+			"appName": s.config.appName,
 			"auth": map[string]any{
 				"user": sess.Get("user"),
 			},
@@ -41,6 +42,7 @@ func (s *Server) SharedProps(next routing.HandlerFunc) routing.HandlerFunc {
 		s.sessionManager.AgeFlash(sess)
 
 		ctxWithProps := gonertia.SetProps(ctx.Request.Context(), props)
+		ctxWithProps = gonertia.SetTemplateData(ctxWithProps, gonertia.TemplateData{"appName": s.config.appName})
 		next(ctx.WithContext(ctxWithProps))
 	}
 }

@@ -18,6 +18,7 @@ export interface Auth {
 
 // Props shared with every page by the server's SharedProps middleware.
 export interface SharedProps {
+  appName: string;
   auth: Auth;
   csrf_token: string;
   errors: Record<string, string[]> | null;

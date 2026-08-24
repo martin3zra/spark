@@ -1,7 +1,4 @@
 {
-  "global": {
-    "appName": "Spark"
-  },
   "auth": {
     "login": "Log in",
     "email": "Email",

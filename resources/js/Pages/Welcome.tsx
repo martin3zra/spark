@@ -11,14 +11,14 @@ import {
 import { type SharedProps } from "@/types";
 
 export default function Welcome() {
-  const { auth } = usePage<SharedProps>().props;
+  const { auth, appName } = usePage<SharedProps>().props;
   const user = auth?.user;
 
   return (
     <div className="bg-muted flex min-h-screen items-center justify-center p-6">
       <Card className="w-full max-w-md text-center">
         <CardHeader>
-          <CardTitle className="text-3xl">Welcome to Spark</CardTitle>
+          <CardTitle className="text-3xl">Welcome to {appName}</CardTitle>
           <CardDescription>
             A starter built on the forge framework.
           </CardDescription>

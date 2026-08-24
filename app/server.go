@@ -44,7 +44,7 @@ func NewServer(assets, resources embed.FS) *Server {
 	return &Server{
 		qs:         qs,
 		config:     LoadConfig(),
-		translator: i18n.NewTranslator(localesFS, defaultLang, fallbackLang, trans("global", "auth")),
+		translator: i18n.NewTranslator(localesFS, defaultLang, fallbackLang, trans("auth")),
 		assets:     assets,
 		resources:  resources,
 	}
