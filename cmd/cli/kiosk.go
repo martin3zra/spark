@@ -68,6 +68,46 @@ const manualSidebarLayoutInstructions = `    Render <ImpersonationBanner /> as t
     access control" section.
 `
 
+const manualThemeMiddlewareInstructions = `    See the README's "Tenant theme + Settings" section for
+    app/middleware.go: resolveTheme(...) called in SharedProps, its result
+    added as the "theme" prop and, wrapped in template.HTML(...), as the
+    "themeStyle" TemplateData.
+`
+
+const manualAuthUserAppearanceInstructions = `    See the README's "Tenant theme + Settings" section for
+    app/auth-user.go: an Appearance string field added to AuthUser,
+    userModel, and toAuthUser()'s mapping.
+`
+
+const manualRootHTMLThemeInstructions = `    Add {{ .themeStyle }} to resources/views/root.html right after the
+    app.css <link>. See the README's "Tenant theme + Settings" section.
+`
+
+const manualAppTSXThemeInstructions = `    See the README's "Tenant theme + Settings" section for
+    resources/js/app.tsx: import applyTheme (@/lib/theme) and router (from
+    "@inertiajs/react"), then router.on("navigate", ...) to reapply the
+    theme on every Inertia navigation.
+`
+
+const manualTypesThemeInstructions = `    See the README's "Tenant theme + Settings" section for
+    resources/js/types/index.d.ts: an "appearance" field on User and a
+    "theme: ResolvedTheme" field on SharedProps (import ResolvedTheme from
+    @/lib/theme).
+`
+
+const manualSettingsFormsInstructions = `    See the README's "Tenant theme + Settings" section for app/forms.go:
+    the clearEmptyStrings helper plus UpdateCompanySettingsForm,
+    UpdateProfileForm, UpdatePasswordForm, UpdateEmailForm, and
+    UpdateAppearanceForm.
+`
+
+const manualSettingsRoutesInstructions = `    See the README's "Tenant theme + Settings" section for app/routes.go:
+    /verify-email, /email/verify, /settings, /company, /profile,
+    /profile/password, /profile/email, and /profile/appearance routes in
+    the authenticated group, plus a new s.Signed-only group for
+    GET /email/confirm.
+`
+
 // applyWireStep runs one auto-wiring step and reports its outcome. An
 // anchorNotFoundError (the target file has diverged from the template)
 // degrades to printing manual instructions instead of failing the install.
@@ -162,6 +202,64 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 	}
 	if err := applyWireStep(root, "resources/js/layouts/app/app-sidebar-layout.tsx", wireKioskSidebarLayout, manualSidebarLayoutInstructions); err != nil {
 		return err
+	}
+
+	fmt.Println("\nWiring the tenant theme + Settings/Profile baseline:")
+	if applied, err := wireKioskThemeEngine(root); err != nil {
+		return fmt.Errorf("wiring app/theme.go: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired app/theme.go")
+	}
+	if err := applyWireStep(root, "app/middleware.go (theme)", wireKioskThemeMiddleware, manualThemeMiddlewareInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "app/auth-user.go (appearance)", wireKioskAuthUserAppearance, manualAuthUserAppearanceInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "resources/views/root.html (theme)", wireKioskRootHTMLTheme, manualRootHTMLThemeInstructions); err != nil {
+		return err
+	}
+	if applied, err := wireKioskThemeLib(root); err != nil {
+		return fmt.Errorf("wiring resources/js/lib/theme.ts: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired resources/js/lib/theme.ts")
+	}
+	if err := applyWireStep(root, "resources/js/app.tsx (theme)", wireKioskAppTSXTheme, manualAppTSXThemeInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "resources/js/types/index.d.ts (theme)", wireKioskTypesTheme, manualTypesThemeInstructions); err != nil {
+		return err
+	}
+	if applied, err := wireKioskCompanyMembers(root); err != nil {
+		return fmt.Errorf("wiring app/company-members.go: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired app/company-members.go")
+	}
+	if applied, err := wireKioskCompanySettings(root); err != nil {
+		return fmt.Errorf("wiring app/company-settings.go: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired app/company-settings.go")
+	}
+	if applied, err := wireKioskProfile(root); err != nil {
+		return fmt.Errorf("wiring app/profile.go: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired app/profile.go")
+	}
+	if err := applyWireStep(root, "app/forms.go (settings)", wireKioskSettingsForms, manualSettingsFormsInstructions); err != nil {
+		return err
+	}
+	if err := applyWireStep(root, "app/routes.go (settings)", wireKioskSettingsRoutes, manualSettingsRoutesInstructions); err != nil {
+		return err
+	}
+	if applied, err := wireKioskVerifyEmailPage(root); err != nil {
+		return fmt.Errorf("wiring resources/js/Pages/Auth/VerifyEmail.tsx: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired resources/js/Pages/Auth/VerifyEmail.tsx")
+	}
+	if applied, err := wireKioskSettingsPage(root); err != nil {
+		return fmt.Errorf("wiring resources/js/Pages/Settings/Index.tsx: %w", err)
+	} else if applied {
+		fmt.Println("  ✓ wired resources/js/Pages/Settings/Index.tsx")
 	}
 
 	fmt.Println("\nNext steps:")
