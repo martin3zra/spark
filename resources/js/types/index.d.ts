@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { Appearance, ResolvedTheme } from "@/lib/theme";
 
 export interface User {
   id: number;
@@ -8,6 +9,8 @@ export interface User {
   role: string;
   email_verified_at: string | null;
   must_change_password: boolean;
+  // light | dark | system; see app/theme.go.
+  appearance: Appearance;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +27,7 @@ export interface SharedProps {
   errors: Record<string, string[]> | null;
   flash: Record<string, unknown> | null;
   translations: Record<string, string>;
+  theme: ResolvedTheme;
   [key: string]: unknown;
 }
 

@@ -68,31 +68,9 @@ const manualSidebarLayoutInstructions = `    Render <ImpersonationBanner /> as t
     access control" section.
 `
 
-const manualThemeMiddlewareInstructions = `    See the README's "Tenant theme + Settings" section for
-    app/middleware.go: resolveTheme(...) called in SharedProps, its result
-    added as the "theme" prop and, wrapped in template.HTML(...), as the
-    "themeStyle" TemplateData.
-`
-
-const manualAuthUserAppearanceInstructions = `    See the README's "Tenant theme + Settings" section for
-    app/auth-user.go: an Appearance string field added to AuthUser,
-    userModel, and toAuthUser()'s mapping.
-`
-
-const manualRootHTMLThemeInstructions = `    Add {{ .themeStyle }} to resources/views/root.html right after the
-    app.css <link>. See the README's "Tenant theme + Settings" section.
-`
-
-const manualAppTSXThemeInstructions = `    See the README's "Tenant theme + Settings" section for
-    resources/js/app.tsx: import applyTheme (@/lib/theme) and router (from
-    "@inertiajs/react"), then router.on("navigate", ...) to reapply the
-    theme on every Inertia navigation.
-`
-
-const manualTypesThemeInstructions = `    See the README's "Tenant theme + Settings" section for
-    resources/js/types/index.d.ts: an "appearance" field on User and a
-    "theme: ResolvedTheme" field on SharedProps (import ResolvedTheme from
-    @/lib/theme).
+const manualThemeCurrentInstructions = `    In app/theme.go, make currentTheme return
+    s.withCompanyTheme(ctx, sess, resolveTheme(sess)), so a company's
+    preset applies when the user hasn't picked one (app/theme_company.go).
 `
 
 const manualSettingsFormsInstructions = `    See the README's "Tenant theme + Settings" section for app/forms.go:
@@ -204,30 +182,13 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 		return err
 	}
 
-	fmt.Println("\nWiring the tenant theme + Settings/Profile baseline:")
-	if applied, err := wireKioskThemeEngine(root); err != nil {
-		return fmt.Errorf("wiring app/theme.go: %w", err)
+	fmt.Println("\nWiring the company theme + Settings/Profile baseline:")
+	if applied, err := wireKioskThemeCompany(root); err != nil {
+		return fmt.Errorf("wiring app/theme_company.go: %w", err)
 	} else if applied {
-		fmt.Println("  ✓ wired app/theme.go")
+		fmt.Println("  ✓ wired app/theme_company.go")
 	}
-	if err := applyWireStep(root, "app/middleware.go (theme)", wireKioskThemeMiddleware, manualThemeMiddlewareInstructions); err != nil {
-		return err
-	}
-	if err := applyWireStep(root, "app/auth-user.go (appearance)", wireKioskAuthUserAppearance, manualAuthUserAppearanceInstructions); err != nil {
-		return err
-	}
-	if err := applyWireStep(root, "resources/views/root.html (theme)", wireKioskRootHTMLTheme, manualRootHTMLThemeInstructions); err != nil {
-		return err
-	}
-	if applied, err := wireKioskThemeLib(root); err != nil {
-		return fmt.Errorf("wiring resources/js/lib/theme.ts: %w", err)
-	} else if applied {
-		fmt.Println("  ✓ wired resources/js/lib/theme.ts")
-	}
-	if err := applyWireStep(root, "resources/js/app.tsx (theme)", wireKioskAppTSXTheme, manualAppTSXThemeInstructions); err != nil {
-		return err
-	}
-	if err := applyWireStep(root, "resources/js/types/index.d.ts (theme)", wireKioskTypesTheme, manualTypesThemeInstructions); err != nil {
+	if err := applyWireStep(root, "app/theme.go (company preset)", wireKioskThemeCurrent, manualThemeCurrentInstructions); err != nil {
 		return err
 	}
 	if applied, err := wireKioskCompanyMembers(root); err != nil {

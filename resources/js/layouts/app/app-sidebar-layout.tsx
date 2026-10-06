@@ -15,7 +15,10 @@ export default function AppSidebarLayout({
       <AppSidebar />
       <AppContent variant="sidebar">
         <AppSidebarHeader breadcrumbs={breadcrumbs} />
-        {children}
+        {/* Content layout: "compact" caps the width, "full" lifts it. */}
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col layout-full:max-w-none">
+          {children}
+        </div>
       </AppContent>
     </AppShell>
   );

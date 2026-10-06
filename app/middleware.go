@@ -27,6 +27,7 @@ func (s *Server) BindMiddleware(next http.Handler) http.Handler {
 func (s *Server) SharedProps(next routing.HandlerFunc) routing.HandlerFunc {
 	return func(ctx *routing.Context) {
 		sess := ctx.Request.Context().Value(session.SessionContextKey{}).(*session.Session)
+		theme := s.currentTheme(ctx.Request.Context(), sess)
 
 		props := map[string]any{
 			"appName": s.config.appName,
@@ -37,12 +38,15 @@ func (s *Server) SharedProps(next routing.HandlerFunc) routing.HandlerFunc {
 			"errors":       sess.Get("errors"),
 			"flash":        sess.Get("flash"),
 			"translations": s.translator.Translations,
+			"theme":        theme,
 		}
 
 		s.sessionManager.AgeFlash(sess)
 
 		ctxWithProps := gonertia.SetProps(ctx.Request.Context(), props)
-		ctxWithProps = gonertia.SetTemplateData(ctxWithProps, gonertia.TemplateData{"appName": s.config.appName})
+		templateData := theme.templateData()
+		templateData["appName"] = s.config.appName
+		ctxWithProps = gonertia.SetTemplateData(ctxWithProps, templateData)
 		next(ctx.WithContext(ctxWithProps))
 	}
 }

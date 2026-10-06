@@ -1,10 +1,41 @@
 <!doctype html>
-<html lang="en">
+<html
+  lang="en"
+  {{ with .theme }}
+    class="{{ if eq .Appearance "dark" }}dark{{ end }}"
+    data-appearance="{{ .Appearance }}"
+    data-radius="{{ .Radius }}"
+    data-scale="{{ .Scale }}"
+    data-layout="{{ .Layout }}"
+  {{ else }}
+    data-appearance="system"
+  {{ end }}
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ .appName }}</title>
+    <script>
+      // Color mode "system": follow the OS, before first paint and whenever
+      // it changes. The server already set the class for "light" and "dark";
+      // resources/js/lib/theme.ts updates data-appearance on a change.
+      (function () {
+        var root = document.documentElement;
+        var query = window.matchMedia("(prefers-color-scheme: dark)");
+        function sync() {
+          if (root.dataset.appearance === "system") {
+            root.classList.toggle("dark", query.matches);
+          }
+        }
+        sync();
+        query.addEventListener("change", sync);
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    {{ .themeFont }}
     <link rel="stylesheet" href="{{ vite "resources/css/app.css" }}" />
+    {{ .themeStyle }}
     {{ if .hmr }}
       <script type="module">
         import RefreshRuntime from "{{ vite "@react-refresh" }}";

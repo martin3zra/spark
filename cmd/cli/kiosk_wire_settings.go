@@ -149,7 +149,7 @@ type companyRow struct {
 	Identifier *string ` + "`db:\"identifier\"`" + `
 	PlanID     *int    ` + "`db:\"plan_id\"`" + `
 	// One of themePresetOrder's ids (theme.go) — resolved separately, on
-	// every request, by resolveTheme/resolveCompanyThemePreset; this copy
+	// every request, by withCompanyTheme (app/theme_company.go); this copy
 	// is read-only display data for the Appearance tab's picker.
 	ThemePreset string ` + "`db:\"theme_preset\"`" + `
 }
@@ -358,8 +358,8 @@ func profileUpdateName() routing.HandlerFunc {
 }
 
 // profileUpdateAppearance handles PUT /profile/appearance — same pattern as
-// profileUpdateName (session refresh so resolveTheme/userAppearanceFromSession,
-// app/theme.go, sees the change on the very next request without a re-login).
+// profileUpdateName (session refresh so resolveTheme, app/theme.go, sees the
+// change on the very next request without a re-login).
 func profileUpdateAppearance() routing.HandlerFunc {
 	return routing.WithRequest(func(ctx *routing.Context, form *UpdateAppearanceForm) {
 		user := AuthUserFromContext(ctx.Request.Context())

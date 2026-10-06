@@ -1,4 +1,4 @@
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 
 import AppLogo from "@/components/app-logo";
 import { NavMain } from "@/components/nav-main";
@@ -12,11 +12,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { sidebarCollapsible, useTheme } from "@/lib/theme";
 import { mainNavItems } from "@/nav-items";
+import { type SharedProps } from "@/types";
 
 export function AppSidebar() {
+  const theme = useTheme(usePage<SharedProps>().props.theme);
+
   return (
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar
+      collapsible={sidebarCollapsible[theme.sidebarMode]}
+      variant={theme.sidebarVariant}
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

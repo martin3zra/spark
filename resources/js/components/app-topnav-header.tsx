@@ -13,7 +13,7 @@ export function AppTopNavHeader({
 
   return (
     <div className="dark border-b bg-background text-foreground">
-      <div className="mx-auto flex max-w-7xl items-center gap-1.5 px-6 py-2 text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-7xl items-center layout-full:max-w-none gap-1.5 px-6 py-2 text-sm text-muted-foreground">
         <Link
           href="/home"
           className="flex items-center transition-colors hover:text-foreground"

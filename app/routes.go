@@ -43,6 +43,13 @@ func (s *Server) bootRoutes() {
 		route.POST("/login", s.authHandler)
 	})
 
+	// Theme customizer (app/theme-handlers.go). Its own group, without
+	// Verified, so the theme can be changed from any signed-in page.
+	s.route.GroupWithMiddleware([]routing.Middleware{s.AuthenticatedMiddleware}, func(route *routing.Router) {
+		route.GET("/settings/theme/catalog", s.themeCatalogHandler)
+		route.PUT("/settings/theme", s.updateThemeHandler)
+	})
+
 	// Authenticated routes.
 	s.route.GroupWithMiddleware([]routing.Middleware{s.AuthenticatedMiddleware, Verified}, func(route *routing.Router) {
 		route.GET("/home", s.homeHandler).Can("view:dashboard")

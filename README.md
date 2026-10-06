@@ -225,8 +225,11 @@ app/
   home-handlers.go           dashboard
   routes.go                  / (welcome) /health /login /home /logout /passwords
   forms.go                   request validation structs
+  theme.go · theme_presets.go  theme customizer: per-user settings, presets, fonts
+  theme-handlers.go          PUT /settings/theme, GET /settings/theme/catalog
   locales/ + locales.go      i18n (app-owned locale files)
-database/                     camel migrations: users, sessions, preview_cache
+database/                     camel migrations: users, sessions, preview_cache,
+                              users.appearance + users.theme_settings
 resources/
   css/app.css                Tailwind v4 + shadcn theme tokens
   js/
@@ -257,6 +260,26 @@ vite.config.js · ssr.config.js
   ```sh
   npx shadcn@latest add dialog dropdown-menu table
   ```
+
+## Theme customizer
+
+The palette button in the header opens a panel where each signed-in user
+picks a theme preset, font, color mode (light / dark / system), radius,
+content layout, scale, and sidebar variant and mode. Changes show at once
+and are saved to the user's account (`users.appearance`,
+`users.theme_settings`), so they follow the user to any device.
+
+- The server renders the theme into `<html>` and `<head>` on every page
+  (`app/theme.go`, `resources/views/root.html`), so there's no flash of the
+  wrong theme. Guests get the defaults with color mode "system".
+- Defaults are `defaultThemeSettings` in `app/theme.go`. The "default" preset
+  in `app/theme_presets.go` must match `app.css`'s `:root` and `.dark`
+  blocks; the other presets and the fonts are fixed catalogs there too.
+- Radius, scale and layout values live in `app.css` (`html[data-radius]`,
+  `html[data-scale]`). Use `layout-full:` to lift a width cap when the user
+  picks the Full content layout, e.g. `max-w-7xl layout-full:max-w-none`.
+- `Server.currentTheme` is the one place to layer anything above the user's
+  choices; `kiosk:install` adds the company's preset there.
 
   (`components.json` is preconfigured: `tsx: true`, `@/components/ui`,
   `@/lib/utils`, lucide icons.)

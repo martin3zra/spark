@@ -163,22 +163,12 @@ function Sidebar({
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
-
-  if (collapsible === "none") {
-    return (
-      <div
-        data-slot="sidebar"
-        className={cn(
-          "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </div>
-    )
-  }
+  const { isMobile, state: toggledState, openMobile, setOpenMobile } = useSidebar()
+  // collapsible="none" never collapses on desktop, but keeps the regular
+  // markup below so the floating and inset variants still apply, and it
+  // still becomes a sheet on phones (stock shadcn returned a plain div
+  // before the mobile check, leaving phones with an always-open sidebar).
+  const state = collapsible === "none" ? "expanded" : toggledState
 
   if (isMobile) {
     return (

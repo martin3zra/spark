@@ -1,0 +1,17 @@
+# users.theme_settings: the theme customizer's choices (preset, font, radius,
+# scale, content layout, sidebar variant and mode) as a JSON object, so a new
+# control needs no migration. NULL or {} means the app's defaults. Color mode
+# stays in users.appearance. See app/theme.go.
+up:
+  user:
+    action: alter
+    table: users
+    add_columns:
+      theme_settings: text nullable
+
+down:
+  user:
+    action: alter
+    table: users
+    drop_columns:
+      - theme_settings

@@ -21,6 +21,10 @@ type AuthUser struct {
 	Role               string     `json:"role"`
 	EmailVerifiedAt    *time.Time `json:"email_verified_at"`
 	MustChangePassword bool       `json:"must_change_password"`
+	// Appearance (light | dark | system) and ThemeSettings are the theme
+	// customizer's choices, cached in the session; see app/theme.go.
+	Appearance    string        `json:"appearance"`
+	ThemeSettings ThemeSettings `json:"theme_settings"`
 	foundation.Timestamps
 }
 
@@ -34,7 +38,7 @@ func (u *AuthUser) HasNotChangedPassword() bool   { return u.MustChangePassword 
 
 func (u *AuthUser) MarkPasswordAsChanged(db *playsql.DB, password string) error {
 	_, err := db.Model(&userModel{}).WhereEq("id", u.Id).Update(context.Background(), map[string]any{
-		"password":              foundation.NewHashable().Make(password),
+		"password":             foundation.NewHashable().Make(password),
 		"must_change_password": false,
 	})
 	return err
@@ -73,6 +77,8 @@ type userModel struct {
 	Role               string     `db:"role"`
 	EmailVerifiedAt    *time.Time `db:"email_verified_at"`
 	MustChangePassword bool       `db:"must_change_password"`
+	Appearance         string     `db:"appearance"`
+	ThemeSettings      *string    `db:"theme_settings"`
 	CreatedAt          *time.Time `db:"created_at"`
 	UpdatedAt          *time.Time `db:"updated_at"`
 	DeletedAt          *time.Time `db:"deleted_at"`
@@ -90,6 +96,8 @@ func (m userModel) toAuthUser() *AuthUser {
 		Role:               m.Role,
 		EmailVerifiedAt:    m.EmailVerifiedAt,
 		MustChangePassword: m.MustChangePassword,
+		Appearance:         normalizeAppearance(m.Appearance),
+		ThemeSettings:      parseThemeSettings(m.ThemeSettings),
 		Timestamps: foundation.Timestamps{
 			CreatedAt: m.CreatedAt,
 			UpdatedAt: m.UpdatedAt,

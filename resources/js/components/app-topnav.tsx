@@ -2,6 +2,7 @@ import { Link, usePage } from "@inertiajs/react";
 import { ChevronDown, ChevronsUpDown } from "lucide-react";
 
 import AppLogo from "@/components/app-logo";
+import { ThemeCustomizer } from "@/components/theme-customizer";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -63,7 +64,7 @@ export function AppTopNav() {
 
   return (
     <header className="border-b">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-6 layout-full:max-w-none">
         <Link href="/home" className="flex items-center">
           <AppLogo />
         </Link>
@@ -78,10 +79,14 @@ export function AppTopNav() {
           ))}
         </nav>
 
+        <div className="ml-auto">
+          <ThemeCustomizer sidebar={false} />
+        </div>
+
         {auth?.user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="ml-auto gap-2 px-2">
+              <Button variant="ghost" className="gap-2 px-2">
                 <UserInfo user={auth.user} />
                 <ChevronsUpDown className="size-4" />
               </Button>
