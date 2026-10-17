@@ -6,7 +6,7 @@ require (
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.12.3
-	github.com/martin3zra/forge v0.3.0
+	github.com/martin3zra/forge v0.3.1
 	github.com/martin3zra/kiosk v0.4.0
 	github.com/martin3zra/playsql v0.7.0
 	github.com/romsar/gonertia/v3 v3.0.0

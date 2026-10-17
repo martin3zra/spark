@@ -22,6 +22,8 @@ github.com/martin3zra/forge v0.1.12 h1:qtow3bc1iHGdFBsDxk8R0Z+eCKHyWiTyfyIYnm7Ff
 github.com/martin3zra/forge v0.1.12/go.mod h1:3SPsGKrjeO+ZO65hKFdWDeB/7JoWfNEFrbsowPstjk0=
 github.com/martin3zra/forge v0.3.0 h1:fP4kCxoipXSbg8ojHf8exnsp2liJxVr2XXKp3lEcnoE=
 github.com/martin3zra/forge v0.3.0/go.mod h1:lBcTDU1ApwuG2UZJiJZYtBTGR0JJYSygMYSkIEgJhj0=
+github.com/martin3zra/forge v0.3.1 h1:/aCPLpgEa+jvcutlC2uTmqjky6rmOAH8DtWPIroV+f4=
+github.com/martin3zra/forge v0.3.1/go.mod h1:lBcTDU1ApwuG2UZJiJZYtBTGR0JJYSygMYSkIEgJhj0=
 github.com/martin3zra/kiosk v0.4.0 h1:ox1x9f2Bxq9H/8B/uh+6hLMoh5ilWq0ZnptxCGKTxQg=
 github.com/martin3zra/kiosk v0.4.0/go.mod h1:S3aoCTrgrmZ9CHRgclw9B01XRi07olKeEKrbCBQPpYI=
 github.com/martin3zra/playsql v0.6.0 h1:GIcSrqg9TvVNA2A3rXdUX6PkBtwh+alFHLJTPm8xHoo=
