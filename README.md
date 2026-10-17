@@ -345,6 +345,7 @@ type Config struct {
 // in LoadConfig():
 mail: mailer.Config{
     Driver:      mailDriverOrDefault(os.Getenv("MAIL_DRIVER")),
+			APIKey:      os.Getenv("RESEND_API_KEY"),
     Host:        os.Getenv("MAIL_HOST"),
     Port:        os.Getenv("MAIL_PORT"),
     FromAddress: os.Getenv("MAIL_FROM_ADDRESS"),
@@ -584,3 +585,12 @@ underneath it. Add `isDeveloper`/`isImpersonating` to the `Auth` type in
   forge session store expects.
 - `AuthenticatedMiddleware` seeds `routing.PermissionKey{}` from the user's role
   so route `.Can(...)` guards resolve.
+
+### Resend email
+
+Set `MAIL_DRIVER=resend`, `RESEND_API_KEY`, `MAIL_FROM_ADDRESS`, and
+`MAIL_FROM_NAME` after installing Kiosk. Verify the sender's domain in Resend.
+Existing templates and Kiosk invitations use the shared Forge mailer.
+Keep `MAIL_DRIVER=log` for development; no provider credentials are needed.
+
+The Resend driver requires Forge v0.3.0 or newer.

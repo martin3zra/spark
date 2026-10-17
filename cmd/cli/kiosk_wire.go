@@ -56,7 +56,19 @@ func wireKioskConfig(root string) (applied bool, err error) {
 		return false, err
 	}
 	if strings.Contains(string(data), "kiosk.AllowlistConfig") {
-		return false, nil
+		content := string(data)
+		if strings.Contains(content, `os.Getenv("RESEND_API_KEY")`) {
+			return false, nil
+		}
+		anchor := "mail: mailer.Config{"
+		if !strings.Contains(content, anchor) {
+			return false, fmt.Errorf("cannot find mail configuration; add APIKey: os.Getenv(\"RESEND_API_KEY\") manually")
+		}
+		content = strings.Replace(content, anchor, anchor+"\nAPIKey: os.Getenv(\"RESEND_API_KEY\"),", 1)
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			return false, err
+		}
+		return true, gofmtFile(path)
 	}
 
 	patches := []wirePatch{
@@ -121,6 +133,7 @@ func wireKioskConfig(root string) (applied bool, err error) {
 		},
 		mail: mailer.Config{
 			Driver:      mailDriverOrDefault(os.Getenv("MAIL_DRIVER")),
+			APIKey:      os.Getenv("RESEND_API_KEY"),
 			Host:        os.Getenv("MAIL_HOST"),
 			Port:        os.Getenv("MAIL_PORT"),
 			FromAddress: os.Getenv("MAIL_FROM_ADDRESS"),
@@ -339,13 +352,21 @@ func wireKioskEnv(root string) (applied bool, err error) {
 	}
 	content := string(data)
 	if strings.Contains(content, "KIOSK_DEVELOPERS=") {
-		return false, nil
+		if strings.Contains(content, "RESEND_API_KEY=") {
+			return false, nil
+		}
+		content = strings.TrimRight(content, "\n") + "\nRESEND_API_KEY=\n"
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
 	addition := "\n# Kiosk — developer allowlist + mail (added by kiosk:install). Leave\n" +
 		"# MAIL_DRIVER unset to log invitations (to LOG_FILE) instead of sending them.\n" +
 		"KIOSK_DEVELOPERS=\n" +
 		"MAIL_DRIVER=\n" +
+		"RESEND_API_KEY=\n" +
 		"MAIL_HOST=\n" +
 		"MAIL_PORT=\n" +
 		"MAIL_FROM_ADDRESS=\n" +

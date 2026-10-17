@@ -22,7 +22,7 @@ func (kioskInstallCmd) Description() string {
 const manualConfigInstructions = `    kiosk kiosk.AllowlistConfig  // field on your Config struct
     mail mailer.Config  // field on your Config struct
     kiosk: kiosk.AllowlistConfig{Developers: kiosk.ParseAllowlist(os.Getenv("KIOSK_DEVELOPERS"))}  // in LoadConfig()
-    mail: mailer.Config{Driver: mailDriverOrDefault(os.Getenv("MAIL_DRIVER")), Host: os.Getenv("MAIL_HOST"), Port: os.Getenv("MAIL_PORT"), FromAddress: os.Getenv("MAIL_FROM_ADDRESS"), FromName: os.Getenv("MAIL_FROM_NAME"), Username: os.Getenv("MAIL_USERNAME"), Password: os.Getenv("MAIL_PASSWORD"), Encryption: os.Getenv("MAIL_ENCRYPTION")}  // in LoadConfig()
+    mail: mailer.Config{APIKey: os.Getenv("RESEND_API_KEY"), Driver: mailDriverOrDefault(os.Getenv("MAIL_DRIVER")), Host: os.Getenv("MAIL_HOST"), Port: os.Getenv("MAIL_PORT"), FromAddress: os.Getenv("MAIL_FROM_ADDRESS"), FromName: os.Getenv("MAIL_FROM_NAME"), Username: os.Getenv("MAIL_USERNAME"), Password: os.Getenv("MAIL_PASSWORD"), Encryption: os.Getenv("MAIL_ENCRYPTION")}  // in LoadConfig()
     func mailDriverOrDefault(driver string) mailer.MailDriver { if driver == "" { return mailer.Log }; return mailer.MailDriver(driver) }
 `
 
@@ -225,6 +225,7 @@ func (kioskInstallCmd) Run(_ *CommandContext, _ []string) error {
 
 	fmt.Println("\nNext steps:")
 	fmt.Println("  1. Set KIOSK_DEVELOPERS in .env to your own email (comma-separated for more).")
+	fmt.Println("  Resend: set MAIL_DRIVER=resend, RESEND_API_KEY, MAIL_FROM_ADDRESS and MAIL_FROM_NAME.")
 	fmt.Println("  2. Once you have real mail credentials, set MAIL_DRIVER/MAIL_HOST/MAIL_PORT/")
 	fmt.Println("     MAIL_FROM_ADDRESS/MAIL_FROM_NAME/MAIL_USERNAME/MAIL_PASSWORD/MAIL_ENCRYPTION")
 	fmt.Println("     in .env (leave MAIL_DRIVER unset and invitations just get logged instead")
